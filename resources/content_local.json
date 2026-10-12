@@ -1,0 +1,10 @@
+{
+  "items": [
+    {"type": "joke", "title": "加班", "body": "老板问我周末干嘛，我说加班。他说：好，那就真有班可加了。"},
+    {"type": "joke", "title": "Ctrl+C", "body": "我：工作这么累，能 Ctrl+C 一下人生吗？同事：那你别忘了 Ctrl+V 两份工资。"},
+    {"type": "riddle", "title": "什么车寸步难行？", "body": "什么车寸步难行？", "answer": "风车。"},
+    {"type": "riddle", "title": "什么东西越洗越脏？", "body": "什么东西越洗越脏？", "answer": "水。"},
+    {"type": "trivia", "title": "蜂蜜不腐", "body": "考古学家在古埃及墓葬中发现了 3000 多年前的蜂蜜，仍然可以食用。"},
+    {"type": "trivia", "title": "章鱼三颗心", "body": "章鱼有三颗心脏，其中两颗给鳃供血，一颗给全身供血。"}
+  ]
+}
