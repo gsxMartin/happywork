@@ -19,10 +19,10 @@ date: 2026-10-12
 
 关键命令执行情况：
 
-- `python -m pytest -v`：成功，`47 passed in 0.30s`。
+- `python -m pytest -v`：成功，`47 passed in 0.30s`（原始输出见文末附录；中文化修正后复跑仍为 47 passed）。
 - `python -m lezi --version`：直接运行**失败**（`No module named lezi`，因包在 `src/` 下且未安装）；补 `PYTHONPATH=src` 后成功输出 `lezi 0.1.0`。
 - 离屏冒烟脚本 `$env:TEMP\lezi_smoke.py`：成功，退出码 0，全部断言输出见 AC-3/AC-5/AC-6/AC-7 各节。
-- `git log --oneline`：13 个提交，实现提交覆盖模型/调度/状态/内容库/抓取/提供者/界面/装配。
+- `git log --oneline`：17 个提交，提交信息**全部为中文**，覆盖模型/调度/状态/内容库/抓取/提供者/界面/装配。
 - `git status --short`：无输出，工作区干净。
 
 ---
@@ -211,7 +211,7 @@ tests/test_store.py::test_missing_file_returns_empty PASSED              [ 91%]
 
 ## AC-10: 有网络时能抓取外部来源的趣闻/新闻，无网络时自动降级到本地内容库
 
-**命令：** `python -m pytest -v`（片段）+ 代码核查 `src/lezi/content/fetcher.py`
+**命令：** `python -m pytest -v`（片段）+ 代码核查 `src/lezi/content/fetcher.py` + 真实联网抓取
 
 **输出：**
 ```
@@ -222,12 +222,22 @@ tests/test_fetcher.py::test_fetch_skips_garbage_bytes_returns_empty PASSED [ 38%
 ```
 ```
 provider.py next_item(): 先在线、无新鲜在线再回退本地；fetcher.fetch() 抛异常则 online=[]
-app.py FEEDS = ["https://feeds.bbci.co.uk/news/world/rss.xml"]
+```
+```
+$env:PYTHONPATH="src"; python -c "from lezi.app import FEEDS; from lezi.content.fetcher import FeedFetcher; ..."
+FEEDS = ['https://www.solidot.org/index.rss', 'https://sspai.com/feed', 'https://www.ruanyifeng.com/blog/atom.xml']
+fetched = 6
+ - 趣闻 | rss | 固态硬盘价格一年翻了两番
+ - 趣闻 | rss | 全球汽油汽车销量首次低于五成
+ - 趣闻 | rss | 微软在 Qwen 模型基础上推出决策模型 Microsoft-Decision-
+ - 趣闻 | rss | FAST 发现一个脉冲星三星系统
+ - 趣闻 | rss | 英国水果蔬菜营养价值下降最高五成
+ - 趣闻 | rss | LineageOS 24 释出
 ```
 
 **判定：** 需人工确认
 
-说明：RSS 解析与按源容错（单源失败不影响其它源）已由单元测试自动化 PASS（使用注入的 `fetch_fn`，未发起真实网络请求）；「无网络降级」逻辑亦由 AC-9 覆盖。但**真实网络抓取外部来源趣闻/新闻的行为未实测**（本环境未对真实 RSS 源发起请求），故不谎报 PASS，标注需人工确认。
+说明：RSS 解析与按源容错（单源失败不影响其它源）已由单元测试自动化 PASS（使用注入的 `fetch_fn`）；**真实联网抓取**已用真实代码路径（`FeedFetcher` + `app.FEEDS`）实测三个**中文**来源，均成功返回条目，`source="rss"`、类型为「趣闻」；「无网络降级」逻辑由 AC-9 覆盖。仍待人工确认的部分：程序实际运行时，托盘环境下是否真的弹出这类 RSS 条目。
 
 ---
 
@@ -242,7 +252,7 @@ tests/test_favorites.py::test_favorites_to_rows_labels_type_and_title PASSED [ 2
 tests/test_favorites.py::test_favorites_to_rows_empty PASSED             [ 29%]
 ```
 ```
-favorites_rows: ['[joke] 笑话', '[riddle] 题']
+favorites_rows: ['[冷笑话] 笑话', '[脑筋急转弯] 题']
 ```
 
 **判定：** PASS
@@ -340,7 +350,7 @@ riddle_hidden_answer: None
 riddle_shown_answer: 答
 joke_show_answer: False
 tray_setup_ok: True
-favorites_rows: ['[joke] 笑话', '[riddle] 题']
+favorites_rows: ['[冷笑话] 笑话', '[脑筋急转弯] 题']
 pop_in_hours: True
 pop_out_hours: False
 pop_fullscreen: False
@@ -350,19 +360,23 @@ pop_idle: False
 
 **`git log --oneline`**
 ```
-3b3ba02 fix: use QApplication style for tray icon; keep child windows alive
-01d30ba feat: application assembly, scheduler loop and CLI entrypoint
-acdf328 feat: content provider with online-first then local fallback
-37318b8 feat: tray controller, settings and favorites windows
-d58755b feat: card view logic and frameless non-activating card window
-acdc191 feat: rss feed fetcher with per-source fault isolation
-54674b9 feat: local content store
-1e51dbe feat: persistent state store for seen/favorites/snooze
-d6ecccb feat: work-hours and random-interval scheduler
-ea4fc24 feat: content item model with stable id
-caefd0e feat: project skeleton and config load/save
-4b114c0 feat: windows fullscreen and idle detection
-3ba83c3 chore: 初始化仓库与 devflow/superpowers 流程文档
+a340305 修复：界面文案、文档与联网来源统一改为中文
+3385d67 合并：合并远程 main 分支
+0c0d739 文档：补充 REQ-96cabcf0 的验收证据
+6dfcc2d 修复：托盘图标改用 QApplication 样式并保持子窗口引用
+114af25 功能：应用装配、调度循环与命令行入口
+7d9d29b 功能：内容提供器（优先联网、回落本地）
+1a909e9 功能：托盘控制器、设置与收藏夹窗口
+1d2b5a4 功能：卡片视图与无边框不抢焦点窗口
+5ecae7e 功能：RSS 抓取与逐源容错
+f81e699 功能：本地内容库
+8794418 功能：已看/收藏/暂停的持久化状态存储
+7db28a7 功能：工作时段与随机间隔调度
+9156191 功能：内容模型与稳定标识
+4a9e27f 功能：项目骨架与配置读写
+37aa497 功能：Windows 全屏与空闲检测
+ad3bc79 维护：初始化仓库与 devflow/superpowers 流程文档
+6b6feac 首次提交
 ```
 
 **`git status --short`**
