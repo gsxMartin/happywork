@@ -72,3 +72,31 @@ def test_skips_seen_online_in_favor_of_fresh_online(tmp_path):
     state.mark_seen("N1")
     p = ContentProvider(store, fetcher, state, rng=random.Random(1))
     assert p.next_item().id == "N2"
+
+
+def test_falls_back_to_local_when_fetcher_is_none(tmp_path):
+    store = FakeStore([_local("L1")])
+    state = StateStore(tmp_path / "s.json")
+    p = ContentProvider(store, None, state, rng=random.Random(1))
+    assert p.next_item().id == "L1"
+
+
+def test_falls_back_to_local_when_fetch_raises(tmp_path):
+    class BoomFetcher:
+        def fetch(self, limit=20):
+            raise RuntimeError("network down")
+
+    store = FakeStore([_local("L1")])
+    state = StateStore(tmp_path / "s.json")
+    p = ContentProvider(store, BoomFetcher(), state, rng=random.Random(1))
+    assert p.next_item().id == "L1"
+
+
+def test_next_item_does_not_mark_seen(tmp_path):
+    store = FakeStore([_local("L1")])
+    fetcher = FakeFetcher([_online("N1")])
+    state = StateStore(tmp_path / "s.json")
+    p = ContentProvider(store, fetcher, state, rng=random.Random(1))
+    item = p.next_item()
+    assert item is not None
+    assert state.is_seen(item.id) is False

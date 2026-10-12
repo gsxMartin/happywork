@@ -1,8 +1,8 @@
 from __future__ import annotations
 
 from PySide6.QtCore import QObject, Signal
-from PySide6.QtGui import QAction
-from PySide6.QtWidgets import QMenu, QStyle, QSystemTrayIcon
+from PySide6.QtGui import QAction, QIcon
+from PySide6.QtWidgets import QApplication, QMenu, QStyle, QSystemTrayIcon
 
 
 class TrayController(QObject):
@@ -15,11 +15,12 @@ class TrayController(QObject):
         super().__init__(parent)
 
     def setup(self) -> None:
-        self.icon = QSystemTrayIcon(
-            self.parent().style().standardIcon(QStyle.SP_MessageBoxInformation)
-            if self.parent() is not None
-            else None
-        )
+        app = QApplication.instance()
+        if app is not None:
+            icon = app.style().standardIcon(QStyle.SP_MessageBoxInformation)
+        else:
+            icon = QIcon()
+        self.icon = QSystemTrayIcon(icon)
         self.icon.setToolTip("找点乐子")
         menu = QMenu()
 

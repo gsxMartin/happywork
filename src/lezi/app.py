@@ -6,8 +6,8 @@ from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Callable
 
-from PySide6.QtCore import QObject, QTimer
-from PySide6.QtWidgets import QApplication
+from PySide6.QtCore import QObject, Qt, QTimer
+from PySide6.QtWidgets import QApplication, QWidget
 
 from .config import Config, load_config
 from .content.fetcher import FeedFetcher
@@ -40,7 +40,7 @@ def should_pop(
     now: datetime,
     is_fullscreen: Callable[[], bool],
     idle_seconds: Callable[[], float],
-    idle_threshold: float = 120.0,
+    idle_threshold: float = IDLE_THRESHOLD_SECONDS,
 ) -> bool:
     if not scheduler.in_work_hours(now):
         return False
@@ -89,6 +89,16 @@ class Application(QObject):
         self._timer.setSingleShot(True)
         self._timer.timeout.connect(self._tick)
 
+        self._child_windows: list[QWidget] = []
+
+    def _show_child(self, window) -> None:
+        window.setAttribute(Qt.WA_DeleteOnClose)
+        self._child_windows.append(window)
+        window.destroyed.connect(
+            lambda *_, w=window: self._child_windows.remove(w) if w in self._child_windows else None
+        )
+        window.show()
+
     def _show_next(self) -> None:
         item = self.provider.next_item()
         if item is None:
@@ -124,12 +134,10 @@ class Application(QObject):
         self.card.close()
 
     def _on_settings(self) -> None:
-        self.settings_window = SettingsWindow(self.cfg)
-        self.settings_window.show()
+        self._show_child(SettingsWindow(self.cfg))
 
     def _on_favorites(self) -> None:
-        self.favorites_window = FavoritesWindow(self.state.favorites())
-        self.favorites_window.show()
+        self._show_child(FavoritesWindow(self.state.favorites()))
 
     def quit(self) -> None:
         self.state.save()
