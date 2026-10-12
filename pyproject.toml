@@ -1,0 +1,28 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "lezi"
+version = "0.1.0"
+description = "常驻托盘的上班时段趣味内容推送小工具"
+requires-python = ">=3.14"
+dependencies = [
+    "PySide6>=6.12",
+    "requests>=2.33",
+    "feedparser>=6.0",
+    "pywin32>=312",
+]
+
+[project.optional-dependencies]
+test = ["pytest>=8"]
+
+[project.scripts]
+lezi = "lezi.app:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]
