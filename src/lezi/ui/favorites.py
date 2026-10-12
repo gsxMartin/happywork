@@ -6,7 +6,7 @@ from ..models import ContentItem
 
 
 def favorites_to_rows(items: list[ContentItem]) -> list[str]:
-    return [f"[{item.type.value}] {item.title}" for item in items]
+    return [f"[{item.type.label}] {item.title}" for item in items]
 
 
 class FavoritesWindow(QWidget):

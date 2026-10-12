@@ -11,9 +11,15 @@ from ..models import ContentItem, ContentType
 
 logger = logging.getLogger(__name__)
 
+# 部分站点会拦截默认的 python-requests UA，这里使用常见浏览器 UA。
+_USER_AGENT = (
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+    "(KHTML, like Gecko) Chrome/120.0 Safari/537.36"
+)
+
 
 def _http_get(url: str, timeout: float) -> bytes:
-    resp = requests.get(url, timeout=timeout)
+    resp = requests.get(url, timeout=timeout, headers={"User-Agent": _USER_AGENT})
     resp.raise_for_status()
     return resp.content
 

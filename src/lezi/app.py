@@ -22,8 +22,10 @@ from .ui.settings import SettingsWindow
 from .ui.tray import TrayController
 
 FEEDS = [
-    # 计划阶段确定的 RSS 来源清单（可按需增删）
-    "https://feeds.bbci.co.uk/news/world/rss.xml",
+    # 中文来源清单，保证推送内容为中文（可按需增删）
+    "https://www.solidot.org/index.rss",  # 奇客资讯
+    "https://sspai.com/feed",  # 少数派
+    "https://www.ruanyifeng.com/blog/atom.xml",  # 科技爱好者周刊
 ]
 
 IDLE_THRESHOLD_SECONDS = 120.0

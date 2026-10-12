@@ -12,6 +12,19 @@ class ContentType(str, Enum):
     TRIVIA = "trivia"
     NEWS = "news"
 
+    @property
+    def label(self) -> str:
+        """用于界面展示的中文名称。"""
+        return _TYPE_LABELS[self]
+
+
+_TYPE_LABELS = {
+    ContentType.JOKE: "冷笑话",
+    ContentType.RIDDLE: "脑筋急转弯",
+    ContentType.TRIVIA: "冷知识",
+    ContentType.NEWS: "趣闻",
+}
+
 
 @dataclass(frozen=True)
 class ContentItem:

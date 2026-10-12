@@ -5,15 +5,15 @@ status: approved
 req_ref: REQ-96cabcf0
 ---
 
-# Summary
+# 概述
 
 一个常驻系统托盘的后台桌面小工具，在工作时段内以随机间隔弹出单条趣味内容卡片（冷笑话、脑筋急转弯、冷知识、趣闻/新闻），以「不打扰、一眼看完」为原则，为用户枯燥的上班时光带来轻量的「小惊喜」。
 
-# Requirement Reference
+# 需求引用
 
 - `docs/requirements/REQ-96cabcf0.md`
 
-# Key Decisions
+# 关键决策
 
 以下为需求确认阶段与用户澄清后确定的关键决策（WHAT 层面）：
 
@@ -36,7 +36,7 @@ req_ref: REQ-96cabcf0
    - 卡片自动消失；提供「安静一会」（暂停一小时）。
    - 短时间内不重复推送同一条内容。
 
-# Open Questions (deferred)
+# 待定问题（延后）
 
 - 联网新闻/趣闻的具体来源清单。
 - 卡片的具体视觉样式与出现位置。

@@ -7,7 +7,7 @@ def test_favorites_to_rows_labels_type_and_title():
         ContentItem(id="a", type=ContentType.JOKE, title="冷笑话A", body="x"),
         ContentItem(id="b", type=ContentType.RIDDLE, title="脑筋急转弯B", body="y", answer="z"),
     ]
-    assert favorites_to_rows(items) == ["[joke] 冷笑话A", "[riddle] 脑筋急转弯B"]
+    assert favorites_to_rows(items) == ["[冷笑话] 冷笑话A", "[脑筋急转弯] 脑筋急转弯B"]
 
 
 def test_favorites_to_rows_empty():

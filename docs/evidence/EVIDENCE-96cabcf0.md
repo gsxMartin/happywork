@@ -29,14 +29,14 @@ date: 2026-10-12
 
 ## AC-1: 程序启动后常驻系统托盘，任务栏不出现常驻窗口
 
-**Command:** `$env:QT_QPA_PLATFORM="offscreen"; $env:PYTHONPATH="src"; python $env:TEMP\lezi_smoke.py`（片段）
+**命令：** `$env:QT_QPA_PLATFORM="offscreen"; $env:PYTHONPATH="src"; python $env:TEMP\lezi_smoke.py`（片段）
 
-**Output:**
+**输出：**
 ```
 tray_setup_ok: True
 ```
 
-**Verdict:** 需人工确认
+**判定：** 需人工确认
 
 说明：离屏代理证据仅证明托盘控制器可无异常构造并调用 `setup()`（`src/lezi/ui/tray.py` 中创建 `QSystemTrayIcon` 并 `show()`）；代码层面主窗口为 `CardWindow`（`Qt.Tool` 标志，不进入任务栏）。但「托盘图标真实出现在 Windows 通知区域」「任务栏无常驻窗口」只能靠真实桌面观察确认，故不谎报 PASS。
 
@@ -44,9 +44,9 @@ tray_setup_ok: True
 
 ## AC-2: 在工作时段内按随机间隔（默认 40~90 分钟，可配置）自动弹出内容卡片
 
-**Command:** `python -m pytest -v`（片段）+ `$env:QT_QPA_PLATFORM="offscreen"; $env:PYTHONPATH="src"; python $env:TEMP\lezi_smoke.py`（片段）
+**命令：** `python -m pytest -v`（片段）+ `$env:QT_QPA_PLATFORM="offscreen"; $env:PYTHONPATH="src"; python $env:TEMP\lezi_smoke.py`（片段）
 
-**Output:**
+**输出：**
 ```
 tests/test_scheduler.py::test_weekday_boundaries PASSED                  [ 63%]
 tests/test_scheduler.py::test_weekend_is_not_work_hours PASSED           [ 65%]
@@ -60,7 +60,7 @@ pop_in_hours: True
 pop_out_hours: False
 ```
 
-**Verdict:** 需人工确认
+**判定：** 需人工确认
 
 说明：默认随机间隔 40~90 分钟（`Config.interval_min_minutes=40` / `interval_max_minutes=90`）、工作时段判定与「时段内应弹、时段外不应弹」的逻辑已由单元测试与离屏断言自动化 PASS（`test_next_delay_seconds_range_and_reproducible` 断言 2400s≤delay≤5400s）。但「到点自动弹出内容卡片」这一真实运行行为依赖真实桌面长时运行观察，故整体判定为需人工确认。
 
@@ -68,9 +68,9 @@ pop_out_hours: False
 
 ## AC-3: 弹出的卡片不抢占键盘焦点、不阻塞用户当前操作
 
-**Command:** `$env:QT_QPA_PLATFORM="offscreen"; $env:PYTHONPATH="src"; python $env:TEMP\lezi_smoke.py`（片段）
+**命令：** `$env:QT_QPA_PLATFORM="offscreen"; $env:PYTHONPATH="src"; python $env:TEMP\lezi_smoke.py`（片段）
 
-**Output:**
+**输出：**
 ```
 card_flags_int: 264203
 has_FramelessWindowHint: True
@@ -79,7 +79,7 @@ has_WindowStaysOnTop: True
 WA_ShowWithoutActivating: True
 ```
 
-**Verdict:** 需人工确认
+**判定：** 需人工确认
 
 说明：离屏断言证明卡片实设了无边框（`FramelessWindowHint`）、工具窗口（`Tool`，不占任务栏、不抢激活）、置顶（`WindowStaysOnTopHint`）窗口标志与 `WA_ShowWithoutActivating` 属性，与「不抢焦点」的实现意图一致（`src/lezi/ui/card.py`）。但「真实不抢占键盘焦点、不阻塞当前操作」必须在真实桌面以键盘输入实测确认，故不谎报 PASS。
 
@@ -87,9 +87,9 @@ WA_ShowWithoutActivating: True
 
 ## AC-4: 卡片在若干秒后自动消失，无需用户操作
 
-**Command:** 代码核查 `src/lezi/ui/card.py`（无对应自动化测试）
+**命令：** 代码核查 `src/lezi/ui/card.py`（无对应自动化测试）
 
-**Output:**
+**输出：**
 ```
 119	        self._timer = QTimer(self)
 120	        self._timer.setSingleShot(True)
@@ -103,7 +103,7 @@ WA_ShowWithoutActivating: True
 Config 默认值：card_seconds: int = 15
 ```
 
-**Verdict:** 需人工确认
+**判定：** 需人工确认
 
 说明：代码显示 `show_item` 会以 `cfg.card_seconds`（默认 15 秒）启动单次定时器，超时后淡出关闭。但该「真实自动消失」行为未有任何自动化测试覆盖，只能靠真实桌面观察，故标注需人工确认。
 
@@ -111,14 +111,14 @@ Config 默认值：card_seconds: int = 15
 
 ## AC-5: 卡片提供「再来一个」「收藏」「安静一会」三个操作
 
-**Command:** `$env:QT_QPA_PLATFORM="offscreen"; $env:PYTHONPATH="src"; python $env:TEMP\lezi_smoke.py`（片段）
+**命令：** `$env:QT_QPA_PLATFORM="offscreen"; $env:PYTHONPATH="src"; python $env:TEMP\lezi_smoke.py`（片段）
 
-**Output:**
+**输出：**
 ```
 card_signals: True True True
 ```
 
-**Verdict:** 需人工确认
+**判定：** 需人工确认
 
 说明：离屏断言证明卡片具备 `next_requested`、`favorite_requested`、`snooze_requested` 三个信号（分别对应「再来一个」「收藏」「安静一会」按钮，见 `src/lezi/ui/card.py`）。但「真实按钮点击并触发对应行为」属于人工交互，故整体标注需人工确认。
 
@@ -126,9 +126,9 @@ card_signals: True True True
 
 ## AC-6: 内容类型至少覆盖：冷笑话、脑筋急转弯（先题后答案，可点击揭示）、冷知识、趣闻/新闻
 
-**Command:** `python -m pytest -v`（片段）+ 冒烟脚本（片段）+ 本地内容库核查
+**命令：** `python -m pytest -v`（片段）+ 冒烟脚本（片段）+ 本地内容库核查
 
-**Output:**
+**输出：**
 ```
 tests/test_card_view.py::test_riddle_hides_answer_before_reveal PASSED   [ 12%]
 tests/test_card_view.py::test_riddle_shows_answer_after_reveal PASSED    [ 14%]
@@ -145,7 +145,7 @@ resources/content_local.json 覆盖类型：joke×2、riddle×2、trivia×2
 app.py FEEDS 抓取来源条目类型为 NEWS
 ```
 
-**Verdict:** PASS
+**判定：** PASS
 
 说明：四类内容类型（冷笑话 JOKE / 脑筋急转弯 RIDDLE / 冷知识 TRIVIA / 趣闻·新闻 NEWS）在枚举、本地内容库与在线抓取（NEWS）中均已覆盖；「先题后答案」的揭示语义由 `test_riddle_hides_answer_before_reveal`、`test_riddle_shows_answer_after_reveal` 及离屏断言自动化验证。附注：真实的「点击『看答案』按钮揭示」交互仍需人工确认。
 
@@ -153,9 +153,9 @@ app.py FEEDS 抓取来源条目类型为 NEWS
 
 ## AC-7: 检测到全屏应用/演示/会议场景时，自动推迟或不弹出
 
-**Command:** `python -m pytest -v`（片段）+ 冒烟脚本（片段）
+**命令：** `python -m pytest -v`（片段）+ 冒烟脚本（片段）
 
-**Output:**
+**输出：**
 ```
 tests/test_app.py::test_should_pop_false_when_fullscreen PASSED          [  6%]
 tests/test_win.py::test_rect_covers_equal_is_true PASSED                 [ 93%]
@@ -167,7 +167,7 @@ tests/test_win.py::test_rect_covers_negative_and_slightly_smaller PASSED [ 99%]
 pop_fullscreen: False
 ```
 
-**Verdict:** PASS
+**判定：** PASS
 
 说明：全屏判定逻辑 `_rect_covers` 由 4 条单元测试覆盖，`should_pop` 在全屏回调返回 True 时返回 False（`test_should_pop_false_when_fullscreen` 与离屏断言 `pop_fullscreen: False`），即检测到全屏时不弹出。附注：基于 Win32（`GetForegroundWindow`/`MonitorFromWindow`）的 OS 级全屏探测未在真实全屏应用下实测。
 
@@ -175,16 +175,16 @@ pop_fullscreen: False
 
 ## AC-8: 短时间内不重复推送同一条内容
 
-**Command:** `python -m pytest -v`（片段）
+**命令：** `python -m pytest -v`（片段）
 
-**Output:**
+**输出：**
 ```
 tests/test_state.py::test_mark_seen_then_is_seen PASSED                  [ 78%]
 tests/test_provider.py::test_skips_seen_online_in_favor_of_fresh_online PASSED [ 55%]
 tests/test_provider.py::test_all_seen_falls_back_to_any_local PASSED     [ 51%]
 ```
 
-**Verdict:** PASS
+**判定：** PASS
 
 说明：`StateStore` 的已见集合（seen）与 `ContentProvider.next_item` 优先挑选未见过内容、仅在全部见过时才从本地兜底，均由自动化测试覆盖，证明短时间内不会重复推送同一条内容。
 
@@ -192,9 +192,9 @@ tests/test_provider.py::test_all_seen_falls_back_to_any_local PASSED     [ 51%]
 
 ## AC-9: 无网络时仍可从本地内容库正常推送
 
-**Command:** `python -m pytest -v`（片段）
+**命令：** `python -m pytest -v`（片段）
 
-**Output:**
+**输出：**
 ```
 tests/test_provider.py::test_falls_back_to_local_when_online_empty PASSED [ 48%]
 tests/test_provider.py::test_falls_back_to_local_when_fetcher_is_none PASSED [ 57%]
@@ -203,7 +203,7 @@ tests/test_store.py::test_load_count PASSED                              [ 87%]
 tests/test_store.py::test_missing_file_returns_empty PASSED              [ 91%]
 ```
 
-**Verdict:** PASS
+**判定：** PASS
 
 说明：当在线抓取为空、无 fetcher、或抓取抛异常（模拟断网）时，提供者均回退到本地内容库并成功取到条目；本地库加载亦有测试覆盖。
 
@@ -211,9 +211,9 @@ tests/test_store.py::test_missing_file_returns_empty PASSED              [ 91%]
 
 ## AC-10: 有网络时能抓取外部来源的趣闻/新闻，无网络时自动降级到本地内容库
 
-**Command:** `python -m pytest -v`（片段）+ 代码核查 `src/lezi/content/fetcher.py`
+**命令：** `python -m pytest -v`（片段）+ 代码核查 `src/lezi/content/fetcher.py`
 
-**Output:**
+**输出：**
 ```
 tests/test_fetcher.py::test_fetch_parses_entries PASSED                  [ 31%]
 tests/test_fetcher.py::test_fetch_respects_limit PASSED                  [ 34%]
@@ -225,7 +225,7 @@ provider.py next_item(): 先在线、无新鲜在线再回退本地；fetcher.fe
 app.py FEEDS = ["https://feeds.bbci.co.uk/news/world/rss.xml"]
 ```
 
-**Verdict:** 需人工确认
+**判定：** 需人工确认
 
 说明：RSS 解析与按源容错（单源失败不影响其它源）已由单元测试自动化 PASS（使用注入的 `fetch_fn`，未发起真实网络请求）；「无网络降级」逻辑亦由 AC-9 覆盖。但**真实网络抓取外部来源趣闻/新闻的行为未实测**（本环境未对真实 RSS 源发起请求），故不谎报 PASS，标注需人工确认。
 
@@ -233,9 +233,9 @@ app.py FEEDS = ["https://feeds.bbci.co.uk/news/world/rss.xml"]
 
 ## AC-11: 被收藏的内容可再次查看
 
-**Command:** `python -m pytest -v`（片段）+ 冒烟脚本（片段）
+**命令：** `python -m pytest -v`（片段）+ 冒烟脚本（片段）
 
-**Output:**
+**输出：**
 ```
 tests/test_state.py::test_favorites_roundtrip PASSED                     [ 80%]
 tests/test_favorites.py::test_favorites_to_rows_labels_type_and_title PASSED [ 27%]
@@ -245,7 +245,7 @@ tests/test_favorites.py::test_favorites_to_rows_empty PASSED             [ 29%]
 favorites_rows: ['[joke] 笑话', '[riddle] 题']
 ```
 
-**Verdict:** PASS
+**判定：** PASS
 
 说明：收藏内容可持久化并重新加载（`test_favorites_roundtrip`），且能渲染为收藏夹列表行（`favorites_to_rows` + `FavoritesWindow`，由 2 条测试与离屏断言覆盖），证明被收藏内容可再次查看。附注：从托盘菜单真实打开收藏夹窗口并肉眼查看仍需人工确认。
 

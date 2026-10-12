@@ -1,16 +1,16 @@
-# 找点乐子 Implementation Plan
+# 找点乐子 实现计划
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **给执行方：** 必需子技能：使用 superpowers:subagent-driven-development（推荐）或 superpowers:executing-plans，按任务逐条执行本计划。步骤使用复选框（`- [ ]`）语法跟踪进度。
 
-**Goal:** 构建一个常驻 Windows 系统托盘的小工具，在工作时段内以随机间隔弹出单条趣味内容卡片（冷笑话/脑筋急转弯/冷知识/趣闻新闻），自动消失且不抢焦点，支持「再来一个/收藏/安静一会」，本地库与联网抓取并重、离线自动降级。
+**目标：** 构建一个常驻 Windows 系统托盘的小工具，在工作时段内以随机间隔弹出单条趣味内容卡片（冷笑话/脑筋急转弯/冷知识/趣闻新闻），自动消失且不抢焦点，支持「再来一个/收藏/安静一会」，本地库与联网抓取并重、离线自动降级。
 
-**Architecture:** 单进程 PySide6 应用。`scheduler` 决定「何时弹」，`content` 层（本地库 + RSS 抓取 + 统一模型 + 提供器）决定「弹什么」，`ui` 层（卡片窗口 + 托盘 + 设置）负责呈现与交互，`state` 负责配置与（已看/收藏/暂停）持久化，`platform` 负责 Windows 全屏与空闲检测。所有时间与网络逻辑通过注入的假时钟、假随机源、假 fetcher 获得确定性。
+**架构：** 单进程 PySide6 应用。`scheduler` 决定「何时弹」，`content` 层（本地库 + RSS 抓取 + 统一模型 + 提供器）决定「弹什么」，`ui` 层（卡片窗口 + 托盘 + 设置）负责呈现与交互，`state` 负责配置与（已看/收藏/暂停）持久化，`platform` 负责 Windows 全屏与空闲检测。所有时间与网络逻辑通过注入的假时钟、假随机源、假 fetcher 获得确定性。
 
-**Tech Stack:** Python >= 3.14，PySide6（Qt Widgets），requests，feedparser，pywin32；测试用 pytest。
+**技术栈：** Python >= 3.14，PySide6（Qt Widgets），requests，feedparser，pywin32；测试用 pytest。
 
-**Spec:** docs/superpowers/specs/DESIGN-96cabcf0.md
+**规格文档：** docs/superpowers/specs/DESIGN-96cabcf0.md
 
-## Global Constraints
+## 全局约束
 
 - Python >= 3.14（本机 3.14.7）。
 - 依赖：`PySide6>=6.12`、`requests>=2.33`、`feedparser>=6.0`、`pywin32>=312`；测试用 `pytest`。
@@ -19,17 +19,17 @@
 - 卡片绝不抢焦点：`Qt.FramelessWindowHint | Qt.Tool | Qt.WindowStaysOnTopHint` + `Qt.WA_ShowWithoutActivating`。
 - 默认配置：工作日 9:30–18:30；推送间隔 40~90 分钟随机；卡片停留 15 秒；「安静一会」暂停 60 分钟。
 
-## Review Focus
+## 审查重点
 
 以下 5 类输入/失败模式最可能让使用者踩坑，且易被常规任务测试遗漏；每行末尾标注其专属测试挂接到哪个任务（该任务已在其步骤中列出对应测试）。
 
-1. **畸形/非 UTF-8 的 RSS 字节流**（半截 XML、HTML 错误页、GBK 编码）——期望 `fetch()` 跳过该源并返回已成功解析的内容或 `[]`，绝不抛异常、绝不让整个抓取失败。测试挂 **Task 6**（`test_fetch_skips_garbage_source`）。
-2. **状态文件损坏或字段类型异常**（`favorites` 不是列表、`snooze_until` 是不合法字符串）——期望 `StateStore.load()` 重置为安全空状态且不抛异常。测试挂 **Task 5**（`test_load_corrupt_state_resets`）。
-3. **`work_start > work_end`（跨夜班）或非法时间字符串**（如 `"9:3"`、`"25:00"`）——期望 `in_work_hours()` 返回 `False` 且不崩溃、`load_config()` 不抛。测试挂 **Task 3**（`test_overnight_and_malformed_time`）。
-4. **多显示器 / 负坐标 / 任务栏占位下的全屏误判**——期望只有当窗口矩形**完全覆盖**所在显示器矩形时才判为全屏，窗口略小或带任务栏即视为非全屏。测试挂 **Task 8**（`test_rect_covers_negative_and_slightly_smaller`）。
-5. **暂停到期瞬间（`now == snooze_until`）与全屏/空闲的判定优先级**——期望暂停到期当刻即恢复推送；时段外/全屏/空闲任一命中都抑制。测试挂 **Task 11**（`test_should_pop_snooze_boundary`）。
+1. **畸形/非 UTF-8 的 RSS 字节流**（半截 XML、HTML 错误页、GBK 编码）——期望 `fetch()` 跳过该源并返回已成功解析的内容或 `[]`，绝不抛异常、绝不让整个抓取失败。测试挂 **任务 6**（`test_fetch_skips_garbage_source`）。
+2. **状态文件损坏或字段类型异常**（`favorites` 不是列表、`snooze_until` 是不合法字符串）——期望 `StateStore.load()` 重置为安全空状态且不抛异常。测试挂 **任务 5**（`test_load_corrupt_state_resets`）。
+3. **`work_start > work_end`（跨夜班）或非法时间字符串**（如 `"9:3"`、`"25:00"`）——期望 `in_work_hours()` 返回 `False` 且不崩溃、`load_config()` 不抛。测试挂 **任务 3**（`test_overnight_and_malformed_time`）。
+4. **多显示器 / 负坐标 / 任务栏占位下的全屏误判**——期望只有当窗口矩形**完全覆盖**所在显示器矩形时才判为全屏，窗口略小或带任务栏即视为非全屏。测试挂 **任务 8**（`test_rect_covers_negative_and_slightly_smaller`）。
+5. **暂停到期瞬间（`now == snooze_until`）与全屏/空闲的判定优先级**——期望暂停到期当刻即恢复推送；时段外/全屏/空闲任一命中都抑制。测试挂 **任务 11**（`test_should_pop_snooze_boundary`）。
 
-## File Structure
+## 文件结构
 
 ```
 找点乐子/
@@ -65,23 +65,23 @@
 
 ---
 
-### Task 1: 项目骨架与配置 `config.py`
+### 任务 1: 项目骨架与配置 `config.py`
 
-**Files:**
-- Create: `pyproject.toml`
-- Create: `src/lezi/__init__.py`
-- Create: `src/lezi/config.py`
-- Test: `tests/test_config.py`
+**文件：**
+- 新建： `pyproject.toml`
+- 新建： `src/lezi/__init__.py`
+- 新建： `src/lezi/config.py`
+- 测试： `tests/test_config.py`
 
-**Interfaces:**
-- Consumes: 无（首个任务）。
-- Produces:
+**接口：**
+- 依赖： 无（首个任务）。
+- 产出：
   - `@dataclass class Config`，字段：`work_start: str = "09:30"`、`work_end: str = "18:30"`、`work_days: tuple[int, ...] = (0, 1, 2, 3, 4)`、`interval_min_minutes: int = 40`、`interval_max_minutes: int = 90`、`card_seconds: int = 15`、`snooze_minutes: int = 60`。
   - `def default_config() -> Config`
   - `def load_config(path: Path) -> Config`（文件缺失或损坏返回默认值，不抛异常）
   - `def save_config(cfg: Config, path: Path) -> None`（JSON，`ensure_ascii=False`）
 
-- [ ] **Step 1: 创建骨架 `pyproject.toml` 与空包**
+- [ ] **步骤 1: 创建骨架 `pyproject.toml` 与空包**
 
 `pyproject.toml` 内容：
 
@@ -120,7 +120,7 @@ testpaths = ["tests"]
 """找点乐子 —— 上班时段的趣味内容托盘小工具。"""
 ```
 
-- [ ] **Step 2: 写失败测试 `tests/test_config.py`**
+- [ ] **步骤 2: 写失败测试 `tests/test_config.py`**
 
 ```python
 from pathlib import Path
@@ -157,12 +157,12 @@ def test_load_corrupt_json_returns_default(tmp_path: Path):
     assert load_config(path) == default_config()
 ```
 
-- [ ] **Step 3: 运行测试确认失败**
+- [ ] **步骤 3: 运行测试确认失败**
 
 Run: `pytest tests/test_config.py -v`
 Expected: FAIL —— `ModuleNotFoundError: No module named 'lezi.config'`
 
-- [ ] **Step 4: 实现 `src/lezi/config.py`**
+- [ ] **步骤 4: 实现 `src/lezi/config.py`**
 
 ```python
 from __future__ import annotations
@@ -210,12 +210,12 @@ def save_config(cfg: Config, path: Path) -> None:
     )
 ```
 
-- [ ] **Step 5: 运行测试确认通过**
+- [ ] **步骤 5: 运行测试确认通过**
 
 Run: `pytest tests/test_config.py -v`
 Expected: PASS（4 passed）
 
-- [ ] **Step 6: Commit**
+- [ ] **步骤 6: Commit**
 
 ```bash
 git add pyproject.toml src/lezi/__init__.py src/lezi/config.py tests/test_config.py
@@ -224,20 +224,20 @@ git commit -m "feat: project skeleton and config load/save"
 
 ---
 
-### Task 2: 内容模型 `models.py`
+### 任务 2: 内容模型 `models.py`
 
-**Files:**
-- Create: `src/lezi/models.py`
-- Test: `tests/test_models.py`
+**文件：**
+- 新建： `src/lezi/models.py`
+- 测试： `tests/test_models.py`
 
-**Interfaces:**
-- Consumes: 无。
-- Produces:
+**接口：**
+- 依赖： 无。
+- 产出：
   - `class ContentType(str, Enum)`：`JOKE="joke"`、`RIDDLE="riddle"`、`TRIVIA="trivia"`、`NEWS="news"`。
   - `@dataclass(frozen=True) class ContentItem`：`id: str`、`type: ContentType`、`title: str`、`body: str`、`answer: str | None = None`、`source: str = "local"`、`url: str | None = None`、`fetched_at: str | None = None`。
   - 方法：`to_dict(self) -> dict`、`@classmethod from_dict(cls, d: dict) -> ContentItem`、`@staticmethod make_id(text: str) -> str`。
 
-- [ ] **Step 1: 写失败测试 `tests/test_models.py`**
+- [ ] **步骤 1: 写失败测试 `tests/test_models.py`**
 
 ```python
 from lezi.models import ContentItem, ContentType
@@ -275,12 +275,12 @@ def test_from_dict_restores_enum_from_string():
     assert item.fetched_at is None
 ```
 
-- [ ] **Step 2: 运行测试确认失败**
+- [ ] **步骤 2: 运行测试确认失败**
 
 Run: `pytest tests/test_models.py -v`
 Expected: FAIL —— `ModuleNotFoundError: No module named 'lezi.models'`
 
-- [ ] **Step 3: 实现 `src/lezi/models.py`**
+- [ ] **步骤 3: 实现 `src/lezi/models.py`**
 
 ```python
 from __future__ import annotations
@@ -340,12 +340,12 @@ class ContentItem:
         return hashlib.sha1(normalized.encode("utf-8")).hexdigest()[:16]
 ```
 
-- [ ] **Step 4: 运行测试确认通过**
+- [ ] **步骤 4: 运行测试确认通过**
 
 Run: `pytest tests/test_models.py -v`
 Expected: PASS（3 passed）
 
-- [ ] **Step 5: Commit**
+- [ ] **步骤 5: Commit**
 
 ```bash
 git add src/lezi/models.py tests/test_models.py
@@ -354,20 +354,20 @@ git commit -m "feat: content item model with stable id"
 
 ---
 
-### Task 3: 调度器 `scheduler.py`
+### 任务 3: 调度器 `scheduler.py`
 
-**Files:**
-- Create: `src/lezi/scheduler.py`
-- Test: `tests/test_scheduler.py`
+**文件：**
+- 新建： `src/lezi/scheduler.py`
+- 测试： `tests/test_scheduler.py`
 
-**Interfaces:**
-- Consumes: `Config`（Task 1）。
-- Produces:
+**接口：**
+- 依赖： `Config`（任务 1）。
+- 产出：
   - `class Scheduler: def __init__(self, cfg: Config, now_fn: Callable[[], datetime] = datetime.now, rng: random.Random | None = None)`
   - `def in_work_hours(self, now: datetime | None = None) -> bool`
   - `def next_delay_seconds(self) -> float`
 
-- [ ] **Step 1: 写失败测试 `tests/test_scheduler.py`**
+- [ ] **步骤 1: 写失败测试 `tests/test_scheduler.py`**
 
 ```python
 import random
@@ -407,12 +407,12 @@ def test_overnight_and_malformed_time():
     assert s2.in_work_hours(datetime(2026, 10, 12, 10, 0)) in (True, False)
 ```
 
-- [ ] **Step 2: 运行测试确认失败**
+- [ ] **步骤 2: 运行测试确认失败**
 
 Run: `pytest tests/test_scheduler.py -v`
 Expected: FAIL —— `ModuleNotFoundError: No module named 'lezi.scheduler'`
 
-- [ ] **Step 3: 实现 `src/lezi/scheduler.py`**
+- [ ] **步骤 3: 实现 `src/lezi/scheduler.py`**
 
 `in_work_hours`：先判星期是否在 `cfg.work_days`；再把当前时刻格式化为 `"%H:%M"` 做字符串比较 `work_start <= cur < work_end`。跨夜（`work_start >= work_end`）时该比较恒为 `False`（首版不支持跨夜，符合预期）。畸形字符串比较不会抛异常，交由字符串字典序决定。
 
@@ -450,12 +450,12 @@ class Scheduler:
         ) * 60.0
 ```
 
-- [ ] **Step 4: 运行测试确认通过**
+- [ ] **步骤 4: 运行测试确认通过**
 
 Run: `pytest tests/test_scheduler.py -v`
 Expected: PASS（4 passed）
 
-- [ ] **Step 5: Commit**
+- [ ] **步骤 5: Commit**
 
 ```bash
 git add src/lezi/scheduler.py tests/test_scheduler.py
@@ -464,21 +464,21 @@ git commit -m "feat: work-hours and random-interval scheduler"
 
 ---
 
-### Task 4: 本地内容库 `content/store.py`
+### 任务 4: 本地内容库 `content/store.py`
 
-**Files:**
-- Create: `src/lezi/content/__init__.py`
-- Create: `src/lezi/content/store.py`
-- Create: `resources/content_local.json`
-- Test: `tests/test_store.py`
+**文件：**
+- 新建： `src/lezi/content/__init__.py`
+- 新建： `src/lezi/content/store.py`
+- 新建： `resources/content_local.json`
+- 测试： `tests/test_store.py`
 
-**Interfaces:**
-- Consumes: `ContentItem`、`ContentType`、`ContentItem.make_id`（Task 2）。
-- Produces:
+**接口：**
+- 依赖： `ContentItem`、`ContentType`、`ContentItem.make_id`（任务 2）。
+- 产出：
   - `class ContentStore: def __init__(self, path: Path)`；`def load(self) -> None`；`def all(self) -> list[ContentItem]`；`def by_type(self, t: ContentType) -> list[ContentItem]`
   - 本地条目 `id` 规则：`ContentItem.make_id(f"{title}\n{body}")`；`source="local"`。
 
-- [ ] **Step 1: 创建 `resources/content_local.json`（各类型各 2 条）**
+- [ ] **步骤 1: 创建 `resources/content_local.json`（各类型各 2 条）**
 
 ```json
 {
@@ -493,7 +493,7 @@ git commit -m "feat: work-hours and random-interval scheduler"
 }
 ```
 
-- [ ] **Step 2: 写失败测试 `tests/test_store.py`**
+- [ ] **步骤 2: 写失败测试 `tests/test_store.py`**
 
 ```python
 from pathlib import Path
@@ -538,12 +538,12 @@ def test_missing_file_returns_empty(tmp_path: Path):
     assert store.all() == []
 ```
 
-- [ ] **Step 3: 运行测试确认失败**
+- [ ] **步骤 3: 运行测试确认失败**
 
 Run: `pytest tests/test_store.py -v`
 Expected: FAIL —— `ModuleNotFoundError: No module named 'lezi.content.store'`
 
-- [ ] **Step 4: 实现 `src/lezi/content/__init__.py` 与 `store.py`**
+- [ ] **步骤 4: 实现 `src/lezi/content/__init__.py` 与 `store.py`**
 
 `content/__init__.py` 为空文件。
 
@@ -591,12 +591,12 @@ class ContentStore:
         return [i for i in self._items if i.type is t]
 ```
 
-- [ ] **Step 5: 运行测试确认通过**
+- [ ] **步骤 5: 运行测试确认通过**
 
 Run: `pytest tests/test_store.py -v`
 Expected: PASS（3 passed）
 
-- [ ] **Step 6: Commit**
+- [ ] **步骤 6: Commit**
 
 ```bash
 git add src/lezi/content/__init__.py src/lezi/content/store.py resources/content_local.json tests/test_store.py
@@ -605,22 +605,22 @@ git commit -m "feat: local content store"
 
 ---
 
-### Task 5: 状态存储 `state.py`
+### 任务 5: 状态存储 `state.py`
 
-**Files:**
-- Create: `src/lezi/state.py`
-- Test: `tests/test_state.py`
+**文件：**
+- 新建： `src/lezi/state.py`
+- 测试： `tests/test_state.py`
 
-**Interfaces:**
-- Consumes: `ContentItem`（Task 2）。
-- Produces:
+**接口：**
+- 依赖： `ContentItem`（任务 2）。
+- 产出：
   - `class StateStore: def __init__(self, path: Path)`
   - `def load(self) -> None`；`def save(self) -> None`
   - `def is_seen(self, item_id: str) -> bool`；`def mark_seen(self, item_id: str) -> None`
   - `def add_favorite(self, item: ContentItem) -> None`；`def favorites(self) -> list[ContentItem]`
   - `def snooze_until(self) -> datetime | None`；`def set_snooze(self, until: datetime) -> None`
 
-- [ ] **Step 1: 写失败测试 `tests/test_state.py`**
+- [ ] **步骤 1: 写失败测试 `tests/test_state.py`**
 
 ```python
 from datetime import datetime
@@ -671,12 +671,12 @@ def test_load_corrupt_state_resets(tmp_path: Path):
     assert st.snooze_until() is None
 ```
 
-- [ ] **Step 2: 运行测试确认失败**
+- [ ] **步骤 2: 运行测试确认失败**
 
 Run: `pytest tests/test_state.py -v`
 Expected: FAIL —— `ModuleNotFoundError: No module named 'lezi.state'`
 
-- [ ] **Step 3: 实现 `src/lezi/state.py`**
+- [ ] **步骤 3: 实现 `src/lezi/state.py`**
 
 `load()` 对整块解析做 try/except：任何异常都重置为「空 seen、空收藏、无暂停」；对 `seen` 用 `set(...)` 容错、对每个收藏条目单独 try（跳过坏条目）、对 `snooze_until` 用 `datetime.fromisoformat` 并容错。
 
@@ -757,12 +757,12 @@ class StateStore:
         self._snooze_until = until
 ```
 
-- [ ] **Step 4: 运行测试确认通过**
+- [ ] **步骤 4: 运行测试确认通过**
 
 Run: `pytest tests/test_state.py -v`
 Expected: PASS（4 passed）
 
-- [ ] **Step 5: Commit**
+- [ ] **步骤 5: Commit**
 
 ```bash
 git add src/lezi/state.py tests/test_state.py
@@ -771,20 +771,20 @@ git commit -m "feat: persistent state store for seen/favorites/snooze"
 
 ---
 
-### Task 6: 联网抓取 `content/fetcher.py`
+### 任务 6: 联网抓取 `content/fetcher.py`
 
-**Files:**
-- Create: `src/lezi/content/fetcher.py`
-- Test: `tests/test_fetcher.py`
+**文件：**
+- 新建： `src/lezi/content/fetcher.py`
+- 测试： `tests/test_fetcher.py`
 
-**Interfaces:**
-- Consumes: `ContentItem`、`ContentType`、`ContentItem.make_id`（Task 2）。
-- Produces:
+**接口：**
+- 依赖： `ContentItem`、`ContentType`、`ContentItem.make_id`（任务 2）。
+- 产出：
   - `class FeedFetcher: def __init__(self, feeds: list[str], timeout: float = 5.0, fetch_fn: Callable[[str, float], bytes] | None = None)`
   - `def fetch(self, limit: int = 20) -> list[ContentItem]`
   - 模块级默认实现 `def _http_get(url: str, timeout: float) -> bytes`（用 requests）。
 
-- [ ] **Step 1: 写失败测试 `tests/test_fetcher.py`**
+- [ ] **步骤 1: 写失败测试 `tests/test_fetcher.py`**
 
 ```python
 from lezi.content.fetcher import FeedFetcher
@@ -824,12 +824,12 @@ def test_fetch_skips_garbage_bytes_returns_empty():
     assert f.fetch() == []
 ```
 
-- [ ] **Step 2: 运行测试确认失败**
+- [ ] **步骤 2: 运行测试确认失败**
 
 Run: `pytest tests/test_fetcher.py -v`
 Expected: FAIL —— `ModuleNotFoundError: No module named 'lezi.content.fetcher'`
 
-- [ ] **Step 3: 实现 `src/lezi/content/fetcher.py`**
+- [ ] **步骤 3: 实现 `src/lezi/content/fetcher.py`**
 
 `fetch()` 逐源 try/except：单源任何异常仅记录日志并跳过，不影响其它源；用 `feedparser.parse(raw_bytes)` 解析；跳过空标题；达到 `limit` 提前返回。`_http_get` 用 requests，`raise_for_status` 后返回 `resp.content`。
 
@@ -894,12 +894,12 @@ class FeedFetcher:
         return items
 ```
 
-- [ ] **Step 4: 运行测试确认通过**
+- [ ] **步骤 4: 运行测试确认通过**
 
 Run: `pytest tests/test_fetcher.py -v`
 Expected: PASS（4 passed）
 
-- [ ] **Step 5: Commit**
+- [ ] **步骤 5: Commit**
 
 ```bash
 git add src/lezi/content/fetcher.py tests/test_fetcher.py
@@ -908,19 +908,19 @@ git commit -m "feat: rss feed fetcher with per-source fault isolation"
 
 ---
 
-### Task 7: 统一内容提供 `content/provider.py`
+### 任务 7: 统一内容提供 `content/provider.py`
 
-**Files:**
-- Create: `src/lezi/content/provider.py`
-- Test: `tests/test_provider.py`
+**文件：**
+- 新建： `src/lezi/content/provider.py`
+- 测试： `tests/test_provider.py`
 
-**Interfaces:**
-- Consumes: `ContentStore`（Task 4）、`FeedFetcher`（Task 6）、`StateStore`（Task 5）、`ContentItem`（Task 2）。
-- Produces:
+**接口：**
+- 依赖： `ContentStore`（任务 4）、`FeedFetcher`（任务 6）、`StateStore`（任务 5）、`ContentItem`（任务 2）。
+- 产出：
   - `class ContentProvider: def __init__(self, store: ContentStore, fetcher: FeedFetcher | None, state: StateStore, rng: random.Random | None = None)`
   - `def next_item(self) -> ContentItem | None`
 
-- [ ] **Step 1: 写失败测试 `tests/test_provider.py`**
+- [ ] **步骤 1: 写失败测试 `tests/test_provider.py`**
 
 ```python
 import random
@@ -999,12 +999,12 @@ def test_skips_seen_online_in_favor_of_fresh_online(tmp_path):
     assert p.next_item().id == "N2"
 ```
 
-- [ ] **Step 2: 运行测试确认失败**
+- [ ] **步骤 2: 运行测试确认失败**
 
 Run: `pytest tests/test_provider.py -v`
 Expected: FAIL —— `ModuleNotFoundError: No module named 'lezi.content.provider'`
 
-- [ ] **Step 3: 实现 `src/lezi/content/provider.py`**
+- [ ] **步骤 3: 实现 `src/lezi/content/provider.py`**
 
 优先级：联网未看 → 本地未看 → 本地任意（重置已看窗口）→ None。内部只用 `state.is_seen` 过滤，不在返回前 `mark_seen`（由调用方决定）；用注入的 `rng.choice` 选择以避免随机不确定性。`fetcher=None` 或 `fetcher.fetch()` 抛异常时视为联网为空。
 
@@ -1052,12 +1052,12 @@ class ContentProvider:
         return None
 ```
 
-- [ ] **Step 4: 运行测试确认通过**
+- [ ] **步骤 4: 运行测试确认通过**
 
 Run: `pytest tests/test_provider.py -v`
 Expected: PASS（5 passed）
 
-- [ ] **Step 5: Commit**
+- [ ] **步骤 5: Commit**
 
 ```bash
 git add src/lezi/content/provider.py tests/test_provider.py
@@ -1066,21 +1066,21 @@ git commit -m "feat: content provider with online-first then local fallback"
 
 ---
 
-### Task 8: 平台集成 `platform/win.py`
+### 任务 8: 平台集成 `platform/win.py`
 
-**Files:**
-- Create: `src/lezi/platform/__init__.py`
-- Create: `src/lezi/platform/win.py`
-- Test: `tests/test_win.py`
+**文件：**
+- 新建： `src/lezi/platform/__init__.py`
+- 新建： `src/lezi/platform/win.py`
+- 测试： `tests/test_win.py`
 
-**Interfaces:**
-- Consumes: 无。
-- Produces:
+**接口：**
+- 依赖： 无。
+- 产出：
   - `def _rect_covers(window_rect: tuple[int, int, int, int], screen_rect: tuple[int, int, int, int]) -> bool`
   - `def is_fullscreen() -> bool`
   - `def idle_seconds() -> float`
 
-- [ ] **Step 1: 写失败测试 `tests/test_win.py`**
+- [ ] **步骤 1: 写失败测试 `tests/test_win.py`**
 
 ```python
 from lezi.platform.win import _rect_covers
@@ -1107,12 +1107,12 @@ def test_rect_covers_negative_and_slightly_smaller():
     assert _rect_covers((-1920, 0, 0, 1080), (-1920, 0, 0, 1080)) is True
 ```
 
-- [ ] **Step 2: 运行测试确认失败**
+- [ ] **步骤 2: 运行测试确认失败**
 
 Run: `pytest tests/test_win.py -v`
 Expected: FAIL —— `ModuleNotFoundError: No module named 'lezi.platform.win'`
 
-- [ ] **Step 3: 实现 `src/lezi/platform/__init__.py` 与 `win.py`**
+- [ ] **步骤 3: 实现 `src/lezi/platform/__init__.py` 与 `win.py`**
 
 `platform/__init__.py` 为空文件。`_rect_covers` 纯逻辑：窗口左/上 <= 屏幕左/上 且 窗口右/下 >= 屏幕右/下。`is_fullscreen` 取前台窗口矩形与其所在显示器矩形比较；`idle_seconds` 用 `GetLastInputInfo` 与 `GetTickCount` 差值换算秒。
 
@@ -1150,12 +1150,12 @@ def idle_seconds() -> float:
     return max(0.0, (now - info) / 1000.0)
 ```
 
-- [ ] **Step 4: 运行测试确认通过**
+- [ ] **步骤 4: 运行测试确认通过**
 
 Run: `pytest tests/test_win.py -v`
 Expected: PASS（4 passed）
 
-- [ ] **Step 5: Commit**
+- [ ] **步骤 5: Commit**
 
 ```bash
 git add src/lezi/platform/__init__.py src/lezi/platform/win.py tests/test_win.py
@@ -1164,21 +1164,21 @@ git commit -m "feat: windows fullscreen and idle detection"
 
 ---
 
-### Task 9: 卡片视图与窗口 `ui/card.py`
+### 任务 9: 卡片视图与窗口 `ui/card.py`
 
-**Files:**
-- Create: `src/lezi/ui/__init__.py`
-- Create: `src/lezi/ui/card.py`
-- Test: `tests/test_card_view.py`
+**文件：**
+- 新建： `src/lezi/ui/__init__.py`
+- 新建： `src/lezi/ui/card.py`
+- 测试： `tests/test_card_view.py`
 
-**Interfaces:**
-- Consumes: `ContentItem`（Task 2）、`Config`（Task 1）。
-- Produces:
+**接口：**
+- 依赖： `ContentItem`（任务 2）、`Config`（任务 1）。
+- 产出：
   - `@dataclass class CardView`：`title: str`、`body: str`、`answer: str | None`、`show_answer: bool`
   - `def build_card_view(item: ContentItem, reveal: bool) -> CardView`
   - `class CardWindow(QWidget)`：信号 `next_requested`、`favorite_requested`、`snooze_requested`；`def show_item(self, item: ContentItem) -> None`；内部 `QTimer` 到 `cfg.card_seconds` 自动关闭。
 
-- [ ] **Step 1: 写失败测试 `tests/test_card_view.py`**
+- [ ] **步骤 1: 写失败测试 `tests/test_card_view.py`**
 
 ```python
 from lezi.models import ContentItem, ContentType
@@ -1215,12 +1215,12 @@ def test_joke_never_shows_answer():
     assert view.title == "加班"
 ```
 
-- [ ] **Step 2: 运行测试确认失败**
+- [ ] **步骤 2: 运行测试确认失败**
 
 Run: `pytest tests/test_card_view.py -v`
 Expected: FAIL —— `ModuleNotFoundError: No module named 'lezi.ui.card'`
 
-- [ ] **Step 3: 实现 `src/lezi/ui/card.py` 的纯逻辑部分**
+- [ ] **步骤 3: 实现 `src/lezi/ui/card.py` 的纯逻辑部分**
 
 `ui/__init__.py` 为空文件。`build_card_view`：仅当 `item.type is ContentType.RIDDLE` 且 `reveal` 为真时暴露答案；其余一律 `answer=None, show_answer=False`。
 
@@ -1252,12 +1252,12 @@ def build_card_view(item: ContentItem, reveal: bool) -> CardView:
     return CardView(title=item.title, body=item.body, answer=None, show_answer=False)
 ```
 
-- [ ] **Step 4: 运行测试确认通过**
+- [ ] **步骤 4: 运行测试确认通过**
 
 Run: `pytest tests/test_card_view.py -v`
 Expected: PASS（3 passed）
 
-- [ ] **Step 5: 在 `src/lezi/ui/card.py` 追加 `CardWindow`**
+- [ ] **步骤 5: 在 `src/lezi/ui/card.py` 追加 `CardWindow`**
 
 要点：无边框圆角半透明、置顶不激活、自动关闭、三个按钮与「看答案」切换。窗口标志与属性按 Global Constraints。
 
@@ -1342,12 +1342,12 @@ class CardWindow(QWidget):
         self._timer.start(self.cfg.card_seconds * 1000)
 ```
 
-- [ ] **Step 6: 手动验证卡片窗口**
+- [ ] **步骤 6: 手动验证卡片窗口**
 
 Run: `python -c "from PySide6.QtWidgets import QApplication; from lezi.config import Config; from lezi.ui.card import CardWindow; from lezi.models import ContentItem, ContentType; import sys; app=QApplication(sys.argv); w=CardWindow(Config(card_seconds=5)); w.show_item(ContentItem(id='r',type=ContentType.RIDDLE,title='什么车寸步难行？',body='什么车寸步难行？',answer='风车。')); app.exec()"`
 Expected（人工确认）：卡片出现在屏幕右下角、无边框圆角、当前输入焦点不被抢走；点击「看答案」后显示「风车。」且按钮隐藏；约 5 秒后卡片自动消失。
 
-- [ ] **Step 7: 增加淡入淡出与右下角定位**
+- [ ] **步骤 7: 增加淡入淡出与右下角定位**
 
 卡片出现于屏幕右下角（距边缘 24px）；显示时以 200ms 从 `windowOpacity=0.0` 淡入到 `1.0`；自动关闭前以 200ms 淡出到 `0.0` 再 `close()`；视觉参数：深色半透明、圆角 16px、正文「微软雅黑」、强调色 `#FFB74D`。
 
@@ -1381,9 +1381,9 @@ def _close_with_fade(self) -> None:
     self._fade(1.0, 0.0, on_finished=self.close)
 ```
 
-手动验证：运行后观察卡片在右下角淡入、停留后淡出，且过程中不夺走键盘焦点。注意：这里给出的方法需与 Task 9 已有 `CardWindow` 的 `show_item`/自动关闭 `QTimer` 逻辑对接（把自动关闭触发时的 `close()` 改为 `_close_with_fade()`，`show_item` 用 `_show_with_fade()`）。
+手动验证：运行后观察卡片在右下角淡入、停留后淡出，且过程中不夺走键盘焦点。注意：这里给出的方法需与 任务 9 已有 `CardWindow` 的 `show_item`/自动关闭 `QTimer` 逻辑对接（把自动关闭触发时的 `close()` 改为 `_close_with_fade()`，`show_item` 用 `_show_with_fade()`）。
 
-- [ ] **Step 8: Commit**
+- [ ] **步骤 8: Commit**
 
 ```bash
 git add src/lezi/ui/__init__.py src/lezi/ui/card.py tests/test_card_view.py
@@ -1392,24 +1392,24 @@ git commit -m "feat: card view logic and frameless non-activating card window"
 
 ---
 
-### Task 10: 托盘与设置 `ui/tray.py` + `ui/settings.py`
+### 任务 10: 托盘与设置 `ui/tray.py` + `ui/settings.py`
 
-**Files:**
-- Create: `src/lezi/ui/tray.py`
-- Create: `src/lezi/ui/settings.py`
-- Create: `src/lezi/ui/favorites.py`
-- Test: `tests/test_settings.py`（新增测试文件；与本任务一起提交）
-- Test: `tests/test_favorites.py`（新增测试文件；与本任务一起提交）
+**文件：**
+- 新建： `src/lezi/ui/tray.py`
+- 新建： `src/lezi/ui/settings.py`
+- 新建： `src/lezi/ui/favorites.py`
+- 测试： `tests/test_settings.py`（新增测试文件；与本任务一起提交）
+- 测试： `tests/test_favorites.py`（新增测试文件；与本任务一起提交）
 
-**Interfaces:**
-- Consumes: `Config`（Task 1）。
-- Produces:
+**接口：**
+- 依赖： `Config`（任务 1）。
+- 产出：
   - `class TrayController(QObject)`：`QSystemTrayIcon` + 右键菜单（「暂停 1 小时」「收藏夹」「设置」「退出」）；信号 `snooze_requested`、`favorites_requested`、`settings_requested`、`quit_requested`；`def __init__(self, parent: QObject | None = None)`。
   - `def config_to_form(cfg: Config) -> dict`；`def form_to_config(form: dict) -> Config`（纯逻辑）。
   - `class SettingsWindow(QWidget)`：`def __init__(self, cfg: Config, parent=None)`；`def current_config(self) -> Config`。
   - `def favorites_to_rows(items: list[ContentItem]) -> list[str]`（纯逻辑）；`class FavoritesWindow(QWidget)`：`def __init__(self, items: list[ContentItem], parent=None)`。
 
-- [ ] **Step 1: 写失败测试 `tests/test_settings.py`**
+- [ ] **步骤 1: 写失败测试 `tests/test_settings.py`**
 
 ```python
 from lezi.config import Config
@@ -1447,7 +1447,7 @@ def test_form_to_config_casts_strings():
     assert cfg.card_seconds == 5
 ```
 
-- [ ] **Step 2: 写失败测试 `tests/test_favorites.py`**
+- [ ] **步骤 2: 写失败测试 `tests/test_favorites.py`**
 
 ```python
 from lezi.models import ContentItem, ContentType
@@ -1466,17 +1466,17 @@ def test_favorites_to_rows_empty():
     assert favorites_to_rows([]) == []
 ```
 
-- [ ] **Step 3: 运行测试确认失败**
+- [ ] **步骤 3: 运行测试确认失败**
 
 Run: `pytest tests/test_favorites.py -v`
 Expected: FAIL —— `ModuleNotFoundError: No module named 'lezi.ui.favorites'`
 
-- [ ] **Step 4: 运行测试确认失败**
+- [ ] **步骤 4: 运行测试确认失败**
 
 Run: `pytest tests/test_settings.py -v`
 Expected: FAIL —— `ModuleNotFoundError: No module named 'lezi.ui.settings'`
 
-- [ ] **Step 5: 实现 `src/lezi/ui/settings.py` 的纯逻辑与窗口**
+- [ ] **步骤 5: 实现 `src/lezi/ui/settings.py` 的纯逻辑与窗口**
 
 纯函数 `config_to_form`/`form_to_config`（对数值字段做 `int(...)` 强转，文本字段做 `str(...)`）；`SettingsWindow` 用 `QLineEdit`/`QSpinBox` 承载各字段，`current_config()` 收集表单值调用 `form_to_config`。
 
@@ -1556,12 +1556,12 @@ class SettingsWindow(QWidget):
         )
 ```
 
-- [ ] **Step 6: 运行测试确认通过**
+- [ ] **步骤 6: 运行测试确认通过**
 
 Run: `pytest tests/test_settings.py -v`
 Expected: PASS（3 passed）
 
-- [ ] **Step 7: 实现 `src/lezi/ui/favorites.py`**
+- [ ] **步骤 7: 实现 `src/lezi/ui/favorites.py`**
 
 ```python
 from __future__ import annotations
@@ -1585,12 +1585,12 @@ class FavoritesWindow(QWidget):
         layout.addWidget(self._list)
 ```
 
-- [ ] **Step 8: 运行测试确认通过**
+- [ ] **步骤 8: 运行测试确认通过**
 
 Run: `pytest tests/test_favorites.py -v`
 Expected: PASS（2 passed）
 
-- [ ] **Step 9: 实现 `src/lezi/ui/tray.py`**
+- [ ] **步骤 9: 实现 `src/lezi/ui/tray.py`**
 
 要点：`QSystemTrayIcon` + 右键菜单四项，菜单动作分别 emit 对应信号；托盘图标须有可显示图标（用 Qt 内置标准图标兜底）。
 
@@ -1639,14 +1639,14 @@ class TrayController(QObject):
         self.icon.show()
 ```
 
-> 说明：`QSystemTrayIcon` 必须先有可用图标才显示；在 `Application`（Task 11）中会以 `QApplication.style()` 提供标准图标，此处的 `parent()` 为 `Application` 对象。
+> 说明：`QSystemTrayIcon` 必须先有可用图标才显示；在 `Application`（任务 11）中会以 `QApplication.style()` 提供标准图标，此处的 `parent()` 为 `Application` 对象。
 
-- [ ] **Step 10: 手动验证托盘**
+- [ ] **步骤 10: 手动验证托盘**
 
 Run: `python -c "from PySide6.QtWidgets import QApplication; from lezi.ui.tray import TrayController; import sys; app=QApplication(sys.argv); t=TrayController(app); t.setup(); t.snooze_requested.connect(lambda: print('snooze')); app.exec()"`
 Expected（人工确认）：系统托盘出现图标；右键菜单含「暂停 1 小时／收藏夹／设置／退出」；点击「暂停 1 小时」控制台打印 `snooze`；任务栏不出现常驻窗口。
 
-- [ ] **Step 11: Commit**
+- [ ] **步骤 11: Commit**
 
 ```bash
 git add src/lezi/ui/tray.py src/lezi/ui/settings.py src/lezi/ui/favorites.py tests/test_settings.py tests/test_favorites.py
@@ -1655,22 +1655,22 @@ git commit -m "feat: tray controller and settings window"
 
 ---
 
-### Task 11: 应用装配与端到端 `app.py` + `__main__.py`
+### 任务 11: 应用装配与端到端 `app.py` + `__main__.py`
 
-**Files:**
-- Create: `src/lezi/app.py`
-- Create: `src/lezi/__main__.py`
-- Modify: `src/lezi/__init__.py`（追加 `__version__ = "0.1.0"`）
-- Test: `tests/test_app.py`（新增测试文件；与本任务一起提交）
+**文件：**
+- 新建： `src/lezi/app.py`
+- 新建： `src/lezi/__main__.py`
+- 修改： `src/lezi/__init__.py`（追加 `__version__ = "0.1.0"`）
+- 测试： `tests/test_app.py`（新增测试文件；与本任务一起提交）
 
-**Interfaces:**
-- Consumes: `Config`/`default_config`/`load_config`/`save_config`（Task 1）、`Scheduler`（Task 3）、`ContentStore`（Task 4）、`FeedFetcher`（Task 6）、`ContentProvider`（Task 7）、`StateStore`（Task 5）、`CardWindow`（Task 9）、`TrayController`（Task 10）、`is_fullscreen`/`idle_seconds`（Task 8）。
-- Produces:
+**接口：**
+- 依赖： `Config`/`default_config`/`load_config`/`save_config`（任务 1）、`Scheduler`（任务 3）、`ContentStore`（任务 4）、`FeedFetcher`（任务 6）、`ContentProvider`（任务 7）、`StateStore`（任务 5）、`CardWindow`（任务 9）、`TrayController`（任务 10）、`is_fullscreen`/`idle_seconds`（任务 8）。
+- 产出：
   - `def should_pop(scheduler: Scheduler, cfg: Config, state: StateStore, now: datetime, is_fullscreen: Callable[[], bool], idle_seconds: Callable[[], float], idle_threshold: float = 120.0) -> bool`
   - `class Application`：`def __init__(self, argv: list[str] | None = None)`；`def start(self) -> None`
   - `def main(argv: list[str] | None = None) -> int`
 
-- [ ] **Step 1: 写失败测试 `tests/test_app.py`**
+- [ ] **步骤 1: 写失败测试 `tests/test_app.py`**
 
 ```python
 from datetime import datetime
@@ -1719,12 +1719,12 @@ def test_should_pop_snooze_boundary(tmp_path):
     assert should_pop(s, Config(), st, datetime(2026, 10, 12, 10, 30), lambda: False, lambda: 0.0) is True
 ```
 
-- [ ] **Step 2: 运行测试确认失败**
+- [ ] **步骤 2: 运行测试确认失败**
 
 Run: `pytest tests/test_app.py -v`
 Expected: FAIL —— `ModuleNotFoundError: No module named 'lezi.app'`
 
-- [ ] **Step 3: 实现 `src/lezi/app.py` 的纯函数 `should_pop`**
+- [ ] **步骤 3: 实现 `src/lezi/app.py` 的纯函数 `should_pop`**
 
 判定顺序：工作时段 → 不在暂停窗口（`snooze now < until` 才抑制）→ 非全屏 → 非空闲（`idle_seconds() >= idle_threshold` 视为空闲）。全屏与空闲以可调用对象注入，便于单测。
 
@@ -1760,12 +1760,12 @@ def should_pop(
     return True
 ```
 
-- [ ] **Step 4: 运行测试确认通过（纯函数）**
+- [ ] **步骤 4: 运行测试确认通过（纯函数）**
 
 Run: `pytest tests/test_app.py -v`
 Expected: PASS（5 passed）
 
-- [ ] **Step 5: 在 `src/lezi/app.py` 追加 `Application` 与 `main`**
+- [ ] **步骤 5: 在 `src/lezi/app.py` 追加 `Application` 与 `main`**
 
 装配各组件；用 `QTimer` 单次触发，触发时先判断 `should_pop(...)`，满足则 `provider.next_item()` 并 `mark_seen` 后 `card.show_item(item)`，否则跳过；再按 `scheduler.next_delay_seconds()` 重排下一次。卡片信号：`next_requested` → 立即取一条再展示；`favorite_requested` → `state.add_favorite` 并保存；`snooze_requested` → `state.set_snooze(now + snooze_minutes)` 并保存、隐藏卡片。托盘 `settings_requested` 打开 `SettingsWindow`、`favorites_requested` 打开 `FavoritesWindow` 列出全部收藏、`quit_requested` 退出、`snooze_requested` 同卡片暂停逻辑。
 
@@ -1906,7 +1906,7 @@ def main(argv: list[str] | None = None) -> int:
 
 在 `src/lezi/__init__.py` 中补充 `__version__ = "0.1.0"`（供 `--version` 使用）。
 
-- [ ] **Step 6: 创建 `src/lezi/__main__.py`**
+- [ ] **步骤 6: 创建 `src/lezi/__main__.py`**
 
 ```python
 from .app import main
@@ -1914,12 +1914,12 @@ from .app import main
 raise SystemExit(main())
 ```
 
-- [ ] **Step 7: 运行全部单元测试确认通过**
+- [ ] **步骤 7: 运行全部单元测试确认通过**
 
 Run: `pytest -v`
-Expected: PASS（`tests/` 全部通过，含 Task 1–11 的单测）
+Expected: PASS（`tests/` 全部通过，含 任务 1–11 的单测）
 
-- [ ] **Step 8: 手动验证端到端**
+- [ ] **步骤 8: 手动验证端到端**
 
 Run: `python -m lezi`
 Expected（人工确认）：
@@ -1930,7 +1930,7 @@ Expected（人工确认）：
 - 「安静一会」后 `state.json` 中 `snooze_until` 更新；
 - 断开网络时仍能从本地库正常推送。
 
-- [ ] **Step 9: Commit**
+- [ ] **步骤 9: Commit**
 
 ```bash
 git add src/lezi/app.py src/lezi/__main__.py src/lezi/__init__.py tests/test_app.py
@@ -1939,45 +1939,45 @@ git commit -m "feat: application assembly, scheduler loop and CLI entrypoint"
 
 ---
 
-## Dependency Graph
+## 依赖图
 
 ```
-Task 1 (config) ─┬─► Task 3 (scheduler) ──────────────┐
-                 ├─► Task 10 (tray/settings) ─────────┤
-                 └─► Task 11 (app) ───────────────────┤
-Task 2 (models) ─┬─► Task 4 (store) ──► Task 7 ───────┤
-                 ├─► Task 6 (fetcher) ─► Task 7 ──────┤
-                 └─► Task 9 (card) ───────────────────┤
-Task 5 (state) ──────────────► Task 7 ────────────────┤
-Task 8 (win) ─────────────────────────────────────────┤
+任务 1 (config) ─┬─► 任务 3 (scheduler) ──────────────┐
+                 ├─► 任务 10 (tray/settings) ─────────┤
+                 └─► 任务 11 (app) ───────────────────┤
+任务 2 (models) ─┬─► 任务 4 (store) ──► 任务 7 ───────┤
+                 ├─► 任务 6 (fetcher) ─► 任务 7 ──────┤
+                 └─► 任务 9 (card) ───────────────────┤
+任务 5 (state) ──────────────► 任务 7 ────────────────┤
+任务 8 (win) ─────────────────────────────────────────┤
                                                       ▼
-                                             Task 11 (app) — 依赖以上全部
+                                             任务 11 (app) — 依赖以上全部
 ```
 
-- **可并行的基础层**：Task 1、Task 2、Task 8 相互独立，可先行。
-- **Task 3** 依赖 Task 1；**Task 4/6/9** 依赖 Task 2；**Task 5** 依赖 Task 2。
-- **Task 7** 依赖 Task 4、Task 5、Task 6。
-- **Task 10** 依赖 Task 1。
-- **Task 11** 依赖 Task 1、3、4、5、6、7、8、9、10（装配全部组件）。
+- **可并行的基础层**：任务 1、任务 2、任务 8 相互独立，可先行。
+- **任务 3** 依赖 任务 1；**任务 4/6/9** 依赖 任务 2；**任务 5** 依赖 任务 2。
+- **任务 7** 依赖 任务 4、任务 5、任务 6。
+- **任务 10** 依赖 任务 1。
+- **任务 11** 依赖 任务 1、3、4、5、6、7、8、9、10（装配全部组件）。
 
-## Test Strategy
+## 测试策略
 
 - **单元测试（pytest，全部通过注入替身实现确定性）**
-  - 配置：默认值、缺失文件、保存读回一致、损坏 JSON（Task 1）。
-  - 模型：`make_id` 稳定性与空白归一、`to_dict/from_dict` 往返、字符串还原枚举（Task 2）。
-  - 调度：工作时段边界（9:30 真 / 9:29 假 / 18:30 假）、周末、固定 `rng` 下 `next_delay_seconds` 落在 [2400,5400] 且可复现、跨夜与畸形时间不崩溃（Task 3）。
-  - 本地库：加载计数、按类型过滤、文件缺失返回空（Task 4）。
-  - 状态：`mark_seen`→`is_seen`、收藏往返、snooze 往返与重载保持、损坏状态重置（Task 5）。
-  - 抓取：假 `fetch_fn` 解析固定 RSS、`limit` 生效、异常/垃圾字节不抛（Task 6）。
-  - 提供器：优先联网未看 → 降级本地 → 本地任意回退 → 全空返回 `None`（Task 7）。
-  - 平台：`_rect_covers` 相等/略小/更大/负坐标（Task 8）。
-  - 卡片纯逻辑：riddle 在 reveal 前后、joke 永不暴露答案（Task 9）。
-  - 设置纯逻辑：`config_to_form`/`form_to_config` 往返与类型强转（Task 10）。
-  - 收藏夹纯逻辑：`favorites_to_rows` 的类型前缀与空列表（Task 10）。
-  - 装配纯逻辑：`should_pop` 的时段/全屏/空闲/暂停边界（Task 11）。
+  - 配置：默认值、缺失文件、保存读回一致、损坏 JSON（任务 1）。
+  - 模型：`make_id` 稳定性与空白归一、`to_dict/from_dict` 往返、字符串还原枚举（任务 2）。
+  - 调度：工作时段边界（9:30 真 / 9:29 假 / 18:30 假）、周末、固定 `rng` 下 `next_delay_seconds` 落在 [2400,5400] 且可复现、跨夜与畸形时间不崩溃（任务 3）。
+  - 本地库：加载计数、按类型过滤、文件缺失返回空（任务 4）。
+  - 状态：`mark_seen`→`is_seen`、收藏往返、snooze 往返与重载保持、损坏状态重置（任务 5）。
+  - 抓取：假 `fetch_fn` 解析固定 RSS、`limit` 生效、异常/垃圾字节不抛（任务 6）。
+  - 提供器：优先联网未看 → 降级本地 → 本地任意回退 → 全空返回 `None`（任务 7）。
+  - 平台：`_rect_covers` 相等/略小/更大/负坐标（任务 8）。
+  - 卡片纯逻辑：riddle 在 reveal 前后、joke 永不暴露答案（任务 9）。
+  - 设置纯逻辑：`config_to_form`/`form_to_config` 往返与类型强转（任务 10）。
+  - 收藏夹纯逻辑：`favorites_to_rows` 的类型前缀与空列表（任务 10）。
+  - 装配纯逻辑：`should_pop` 的时段/全屏/空闲/暂停边界（任务 11）。
 - **集成 / 手动验证（无法在无桌面 CI 中自动断言，按各任务「手动验证」步骤执行）**
-  - 卡片窗口显示、圆角置顶不抢焦点、自动消失、「看答案」揭示（Task 9）。
-  - 托盘图标与右键菜单信号（Task 10）。
-  - 端到端：托盘常驻、随机弹出、全屏/暂停抑制、收藏回看、离线降级（Task 11）。
-- **边界与错误路径**：损坏配置/状态文件、缺失内容库、抓取异常与非 XML 字节、跨夜与畸形时间、暂停到期瞬间、多显示器负坐标（覆盖于 Task 1/3/5/6/8/11）。
-- **空状态**：本地库为空且联网为空时 `next_item()` 返回 `None`，本轮不弹（Task 7）；收藏为空时「收藏夹」无操作（Task 11）。
+  - 卡片窗口显示、圆角置顶不抢焦点、自动消失、「看答案」揭示（任务 9）。
+  - 托盘图标与右键菜单信号（任务 10）。
+  - 端到端：托盘常驻、随机弹出、全屏/暂停抑制、收藏回看、离线降级（任务 11）。
+- **边界与错误路径**：损坏配置/状态文件、缺失内容库、抓取异常与非 XML 字节、跨夜与畸形时间、暂停到期瞬间、多显示器负坐标（覆盖于 任务 1/3/5/6/8/11）。
+- **空状态**：本地库为空且联网为空时 `next_item()` 返回 `None`，本轮不弹（任务 7）；收藏为空时「收藏夹」无操作（任务 11）。
