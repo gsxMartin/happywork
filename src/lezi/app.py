@@ -76,7 +76,9 @@ def should_pop(
 class Application(QObject):
     def __init__(self, argv: list[str] | None = None) -> None:
         super().__init__()
-        self.qapp = QApplication(argv if argv is not None else sys.argv)
+        self.qapp = QApplication.instance() or QApplication(
+            argv if argv is not None else sys.argv
+        )
         # 程序常驻托盘、没有主窗口，关闭「设置/收藏夹」或卡片自动消失都不应结束进程；
         # 退出只由托盘菜单的「退出」触发。
         self.qapp.setQuitOnLastWindowClosed(False)

@@ -15,7 +15,7 @@ date: 2026-10-12
 | 总 AC 数 | 11 |
 | 自动化判定为 PASS 的 AC 数 | 4（AC-6、AC-8、AC-9、AC-11） |
 | 需人工确认的 AC 数 | 7（AC-1、AC-2、AC-3、AC-4、AC-5、AC-7、AC-10） |
-| 测试用例总数 | 47（验收阶段）；后续打包新增 4 条、缺陷修复新增 3 条，现为 54 条，见文末补记 |
+| 测试用例总数 | 47（验收阶段）；后续打包新增 4 条、缺陷修复新增 4 条，现为 55 条，见文末补记 |
 
 > 2026-10-13 更正：AC-7 原被判定为「自动化 PASS」，复查发现其真实探测路径（`is_fullscreen()`）因常量引用错误恒返回 `False`，属于「用替身测通过、真实路径失效」的假 PASS，现改列为需人工确认并已修复，详见文末「补记：人工验证发现的缺陷与修复」。
 
@@ -525,6 +525,43 @@ win32con 有 MONITOR_DEFAULTTONEAREST 吗: True 2
 显示器矩形: (0, 0, 1536, 960)
 结论: 调用链无异常，全屏判定真实可用（返回值 False 是「确实非全屏」）
 ```
+
+### 缺陷 3：卡片没有背景，浅色正文在白色背景上不可见
+
+- **现象**：卡片弹出后看不到文字；正文是浅灰 `#F5F5F5`，在白底窗口前尤其明显。
+- **根因**：`CardWindow` 是自定义 `QWidget` 子类且开启了 `WA_TranslucentBackground`。Qt **不会**为自定义 `QWidget` 子类自动绘制样式表中的背景，必须自行实现 `paintEvent` 并调用 `style().drawPrimitive(QStyle.PE_Widget, ...)`。因此 `_STYLE` 中的 `CardWindow { background-color: rgba(28,28,30,225); border-radius: 16px; }` 从未生效，卡片整块透明。子控件（`QPushButton`）的样式表照常生效，故按钮能看见而正文看不见。
+- **证据**（离屏渲染后采样像素）：
+
+```
+WA_TranslucentBackground: True
+WA_StyledBackground   : False
+像素(20,20)  rgba = 0,0,0,0          ← 完全透明：背景未绘制
+像素(513,120) rgba = 255,185,77,40   ← 按钮样式生效（子控件正常）
+```
+
+  再用三个最小变体对照同一段样式表、同一采样点：
+
+```
+Python 子类的 className(): A
+A（类名选择器 + WA_StyledBackground）         -> (4,50) = (0, 0, 0, 0)
+B（objectName 选择器 + WA_StyledBackground）  -> (4,50) = (0, 0, 0, 0)
+C（objectName 选择器 + 自绘 paintEvent）       -> (4,50) = (28, 28, 29, 225)
+```
+
+  即选择器本身能匹配（`className()` 就是 Python 类名），单开 `WA_StyledBackground` 无效，**必须自绘 `paintEvent`**。
+
+- **修复**：`CardWindow` 新增 `paintEvent`，绘制 `QStyle.PE_Widget`。
+- **验证**：新增 `tests/test_card_view.py::test_card_paints_its_own_background`（先失败后通过，断言卡片左侧留白像素 `alpha > 0`）；修复后复核真实卡片：
+
+```
+卡片尺寸: 533 x 154
+像素(4,77)   rgba = 28,28,29,225
+像素(20,20)  rgba = 28,28,29,225
+像素(266,77) rgba = 28,28,29,225
+像素(529,77) rgba = 28,28,29,225
+```
+
+- **附带改动**：`Application` 改为复用已存在的 `QApplication` 实例（`QApplication.instance() or QApplication(...)`）。否则引入第二个使用 Qt 的测试时会因单例冲突报 `RuntimeError: libshiboken: Please destroy the QApplication singleton before creating a new QApplication instance.`（已实测）。
 
 ### 已排除的两个猜想（均有实测证据，确认不是缺陷）
 

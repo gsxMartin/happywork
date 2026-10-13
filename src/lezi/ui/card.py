@@ -8,10 +8,13 @@ from PySide6.QtCore import (
     QTimer,
     Signal,
 )
+from PySide6.QtGui import QPainter
 from PySide6.QtWidgets import (
     QHBoxLayout,
     QLabel,
     QPushButton,
+    QStyle,
+    QStyleOption,
     QVBoxLayout,
     QWidget,
 )
@@ -119,6 +122,14 @@ class CardWindow(QWidget):
         self._timer = QTimer(self)
         self._timer.setSingleShot(True)
         self._timer.timeout.connect(self._close_with_fade)
+
+    def paintEvent(self, event) -> None:
+        # 自定义 QWidget 子类不会自动绘制样式表里的背景，需自绘 PE_Widget；
+        # 否则卡片整块透明，浅色正文在白色背景上会看不见。
+        option = QStyleOption()
+        option.initFrom(self)
+        painter = QPainter(self)
+        self.style().drawPrimitive(QStyle.PE_Widget, option, painter, self)
 
     def _render(self) -> None:
         if self._item is None:
