@@ -43,8 +43,21 @@ pythonw -m lezi
 
 ### 方式四：打包成 exe（分发用，目标机器无需 Python 环境）
 
+首次需安装打包依赖：
+
 ```powershell
 python -m pip install "pyinstaller>=6.10"
+```
+
+之后双击 `build.bat`（或在命令行执行 `.\build.bat`）即可，它会先清理旧产物再打包：
+
+```powershell
+.\build.bat
+```
+
+也可以跳过脚本直接调 PyInstaller：
+
+```powershell
 python -m PyInstaller lezi.spec --noconfirm
 ```
 

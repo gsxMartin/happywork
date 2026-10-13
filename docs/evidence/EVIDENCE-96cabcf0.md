@@ -455,6 +455,23 @@ lezi.exe（启动后观察 6 秒）        → 进程存活，未提前退出
   `ImportError: attempted relative import with no known parent package`（用带控制台的临时构建复现得到）。
   修复：新增仓库根 `lezi_entry.py` 作为绝对导入的打包入口，spec 的 Analysis 指向它。
 
+- 打包脚本 `build.bat` 首次运行时中文行导致 cmd 解析错位（`if exist` 被读成 `xist`，报 `'xist' is not recognized`）。原因是文件为 LF 换行，而 cmd.exe 解析批处理需要 CRLF，按字节偏移读取时错位。修复：转为 CRLF 换行，并新增 `.gitattributes` 固定 `*.bat text eol=crlf`，避免检出后再次变成 LF。修复后脚本一次跑通，`exit=0`，中文输出无乱码。
+
+**打包脚本验证**
+
+```
+.\build.bat        → exit=0
+[1/3] 清理旧产物...
+[2/3] 打包中（目录模式 + 无控制台窗口）...
+[3/3] 打包完成。
+产物：dist\lezi\lezi.exe
+```
+
+```
+dist/lezi/ 下内容：lezi.exe、_internal
+dist/lezi/lezi.exe --version  → 退出码 0
+```
+
 **判定：** 部分 PASS，需人工确认
 
 - 已验证：冻结路径解析逻辑（4 条测试）、构建成功、资源已打入预期位置、exe 可启动且不闪退。

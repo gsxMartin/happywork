@@ -1,0 +1,2 @@
+# 批处理脚本必须使用 CRLF 换行，否则 cmd.exe 按字节偏移读取会错位（例如 if exist 被读成 xist）
+*.bat text eol=crlf
