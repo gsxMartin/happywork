@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import win32api
+import win32con
 import win32gui
 
 Rect = tuple[int, int, int, int]
@@ -18,7 +19,7 @@ def is_fullscreen() -> bool:
         return False
     try:
         rect = win32gui.GetWindowRect(hwnd)
-        monitor = win32api.MonitorFromWindow(hwnd, win32api.MONITOR_DEFAULTTONEAREST)
+        monitor = win32api.MonitorFromWindow(hwnd, win32con.MONITOR_DEFAULTTONEAREST)
         screen_rect = win32api.GetMonitorInfo(monitor)["Monitor"]
     except Exception:
         return False

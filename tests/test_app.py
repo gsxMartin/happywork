@@ -66,3 +66,13 @@ def test_resource_path_falls_back_to_base_dir_when_frozen(monkeypatch, tmp_path)
     monkeypatch.setattr(sys, "executable", str(tmp_path / "lezi.exe"))
     monkeypatch.delattr(sys, "_MEIPASS", raising=False)
     assert _resource_path() == tmp_path / "resources" / "content_local.json"
+
+
+def test_application_keeps_running_after_last_window_closed(monkeypatch):
+    # 托盘常驻应用没有主窗口：关闭「设置」或「收藏夹」不应让整个程序退出
+    monkeypatch.setenv("QT_QPA_PLATFORM", "offscreen")
+
+    from lezi.app import Application
+
+    app = Application([])
+    assert app.qapp.quitOnLastWindowClosed() is False

@@ -13,9 +13,11 @@ date: 2026-10-12
 | 项目 | 数值 |
 | --- | --- |
 | 总 AC 数 | 11 |
-| 自动化判定为 PASS 的 AC 数 | 5（AC-6、AC-7、AC-8、AC-9、AC-11） |
-| 需人工确认的 AC 数 | 6（AC-1、AC-2、AC-3、AC-4、AC-5、AC-10） |
-| 测试用例总数 | 47（验收阶段；`python -m pytest -v` 全部通过）。后续打包工作新增 4 条路径解析测试，合计 51 条，见文末补记 |
+| 自动化判定为 PASS 的 AC 数 | 4（AC-6、AC-8、AC-9、AC-11） |
+| 需人工确认的 AC 数 | 7（AC-1、AC-2、AC-3、AC-4、AC-5、AC-7、AC-10） |
+| 测试用例总数 | 47（验收阶段）；后续打包新增 4 条、缺陷修复新增 3 条，现为 54 条，见文末补记 |
+
+> 2026-10-13 更正：AC-7 原被判定为「自动化 PASS」，复查发现其真实探测路径（`is_fullscreen()`）因常量引用错误恒返回 `False`，属于「用替身测通过、真实路径失效」的假 PASS，现改列为需人工确认并已修复，详见文末「补记：人工验证发现的缺陷与修复」。
 
 关键命令执行情况：
 
@@ -167,9 +169,9 @@ tests/test_win.py::test_rect_covers_negative_and_slightly_smaller PASSED [ 99%]
 pop_fullscreen: False
 ```
 
-**判定：** PASS
+**判定：** 代码级 PASS，真实全屏应用下需人工确认
 
-说明：全屏判定逻辑 `_rect_covers` 由 4 条单元测试覆盖，`should_pop` 在全屏回调返回 True 时返回 False（`test_should_pop_false_when_fullscreen` 与离屏断言 `pop_fullscreen: False`），即检测到全屏时不弹出。附注：基于 Win32（`GetForegroundWindow`/`MonitorFromWindow`）的 OS 级全屏探测未在真实全屏应用下实测。
+说明：本项在验收阶段曾被误判为 PASS。复查发现 `is_fullscreen()` 中引用了不存在的 `win32api.MONITOR_DEFAULTTONEAREST`（该常量实际位于 `win32con`），该行必然抛 `AttributeError` 并被 `except Exception` 吞掉，导致函数**恒返回 False**——真实的全屏探测从未生效，仅在注入替身的单元测试中显示「通过」。已修复为 `win32con.MONITOR_DEFAULTTONEAREST`，并新增 2 条直接覆盖真实 `is_fullscreen()` 的测试（注入 `GetForegroundWindow`/`GetWindowRect`/`MonitorFromWindow`/`GetMonitorInfo`）。`_rect_covers` 仍由原有 4 条单元测试覆盖。仍未实测的部分：真实全屏应用（视频播放 / F11 全屏 / 放映）下是否确实抑制。
 
 ---
 
@@ -474,5 +476,68 @@ dist/lezi/lezi.exe --version  → 退出码 0
 
 **判定：** 部分 PASS，需人工确认
 
-- 已验证：冻结路径解析逻辑（4 条测试）、构建成功、资源已打入预期位置、exe 可启动且不闪退。
-- 待人工确认：打包后的 exe 在真实桌面下能否正常弹出卡片（本次未做长时间运行验证），以及托盘图标与右键菜单是否与源码运行一致。
+- 已验证：冻结路径解析逻辑（4 条测试）、构建成功、资源已打入预期位置、exe 可启动且不闪退；后续补测确认打包版在 1 分钟间隔配置下 60 秒内确实弹卡（见文末「补记：人工验证发现的缺陷与修复」）。
+- 待人工确认：托盘图标与右键菜单的实际观感、卡片在真实桌面下的位置与淡入淡出效果。
+- 注意：本次修复（见下节）改动了 `app.py` 与 `platform/win.py`，`dist/lezi` 需**重新执行 `build.bat`** 才会包含修复；用户已持有的那份 exe 仍是修复前的构建。
+
+---
+
+## 补记：人工验证发现的缺陷与修复
+
+用户在真实使用打包后的 exe 时报告两个现象。以下为按系统化调试流程（先根因调查、后修复）得到的记录。
+
+### 缺陷 1：关闭「设置」或「收藏夹」窗口后，托盘图标消失（程序退出）
+
+- **现象**：托盘图标正常显示，右键打开「设置」或「收藏夹」，关闭该窗口后托盘图标消失。
+- **根因**：`QApplication.quitOnLastWindowClosed` 默认为 `True`，而 `Application` 从未将其置为 `False`。本程序常驻托盘、没有主窗口，关闭「设置/收藏夹」（或卡片 15 秒倒计时结束后自行关闭）即构成「最后一个窗口关闭」→ Qt 退出事件循环 → 进程结束、托盘图标消失。
+- **证据**：
+
+```
+quitOnLastWindowClosed -> True
+```
+
+- **修复**：`Application.__init__` 创建 `QApplication` 后调用 `setQuitOnLastWindowClosed(False)`；退出仅由托盘菜单「退出」触发。
+- **验证**：新增测试 `tests/test_app.py::test_application_keeps_running_after_last_window_closed`（先失败后通过），并离屏复现「打开设置 → 关闭」：
+
+```
+设置窗口已打开，可见: True
+exec 返回码: 0 | 耗时: 815 ms
+判定: 关窗后程序继续运行（修复生效）
+```
+
+（若仍会关窗即退出，`exec()` 会在关窗瞬间返回，耗时远小于 800ms。）
+
+### 缺陷 2：全屏探测恒为 False，全屏抑制从未生效（AC-7 假 PASS 的根源）
+
+- **根因**：`is_fullscreen()` 中引用了不存在的 `win32api.MONITOR_DEFAULTTONEAREST`（该常量实际位于 `win32con`），必然抛 `AttributeError`，又被 `except Exception: return False` 吞掉。
+- **证据**：
+
+```
+win32api 有 MONITOR_DEFAULTTONEAREST 吗: False
+win32con 有 MONITOR_DEFAULTTONEAREST 吗: True 2
+```
+
+- **修复**：改用 `win32con.MONITOR_DEFAULTTONEAREST`。
+- **验证**：新增 `tests/test_win.py::test_is_fullscreen_true_when_window_covers_monitor`（先失败后通过）与 `::test_is_fullscreen_false_when_window_smaller_than_monitor`；实测真实调用链不再抛异常：
+
+```
+窗口矩形: (-7, -7, 1543, 919)
+显示器矩形: (0, 0, 1536, 960)
+结论: 调用链无异常，全屏判定真实可用（返回值 False 是「确实非全屏」）
+```
+
+### 已排除的两个猜想（均有实测证据，确认不是缺陷）
+
+- **「最大化窗口被误判为全屏」**：实测本机可见的 5 个最大化窗口矩形均为 `(-7, -7, 1543, 919)`，显示器为 `(0, 0, 1536, 960)`，底部 919 < 960（未盖住任务栏），`_rect_covers` 判定为 False。且任务栏未自动隐藏（工作区 `(0, 0, 1536, 912)` ≠ 显示器区域 `(0, 0, 1536, 960)`）。故当前不构成误判。
+  残留风险（本次未改动）：若把任务栏设为**自动隐藏**，最大化窗口将覆盖整个显示器区域而被判为全屏，从而持续抑制推送。
+- **「打包后完全不弹卡」**：给打包目录写入 1 分钟间隔配置后实测，60 秒内 `state.json` 生成 `seen` 记录，进程 75 秒后仍存活：
+
+```
+state.json 已生成:
+{ "seen": ["62d0929dce01cecd"], "favorites": [], "snooze_until": null }
+75 秒后进程仍存活，已停止
+```
+
+  即打包后的程序弹卡链路正常；用户未见弹卡的原因是默认间隔为 40~90 分钟、尚未到时间。
+
+**测试总数变化**：47（验收阶段）→ 51（打包）→ 54（本次缺陷修复）。
