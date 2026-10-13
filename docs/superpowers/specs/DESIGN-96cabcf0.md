@@ -16,8 +16,9 @@ selected_approach: PySide6 自绘卡片
 **目标**
 - 常驻系统托盘，任务栏不出现常驻窗口
 - 工作时段内按随机间隔弹出单条趣味卡片，自动消失
-- 内容类型：冷笑话 / 脑筋急转弯（先题后答案）/ 冷知识 / 趣闻·新闻
-- 本地内容库 + 联网抓取并重，离线时自动降级为纯本地
+- 内容类型：冷笑话 / 脑筋急转弯（先题后答案）/ 冷知识 / 妙语（联网趣味短句）
+- 本地内容库 + 联网趣味来源**并重混池**，离线时自动降级为纯本地
+- **只推乐子，不推新闻资讯**（新闻由用户自行上网查看，不属于本产品职责）
 - 卡片操作：「再来一个」「收藏」「安静一会」；收藏内容可回看
 - 不抢键盘焦点；全屏/演示/会议场景自动抑制
 - 短时间内不重复推送同一条内容
@@ -45,12 +46,12 @@ selected_approach: PySide6 自绘卡片
 
 - `app`：程序入口、生命周期、托盘控制器（TrayController）
 - `scheduler`：工作时段判断 + 随机间隔
-- `content`：内容层——本地库（ContentStore）+ 联网抓取（FeedFetcher）+ 统一模型 `ContentItem`
+- `content`：内容层——本地库（ContentStore）+ 联网趣味抓取（QuipFetcher）+ 统一模型 `ContentItem`
 - `ui`：卡片窗口（CardWindow）、设置窗口（SettingsWindow）、收藏夹窗口（FavoritesWindow）
 - `state`：配置与持久化（配置、收藏、已看历史）
 - `platform`：平台集成——全屏检测、空闲检测（Windows）
 
-**数据流**：scheduler 触发 → content 取一条未看过的内容（优先联网、否则本地，基于去重窗口）→ ui 渲染卡片 → 用户操作（再来一个 / 收藏 / 安静一会）→ state 持久化。
+**数据流**：scheduler 触发 → content 从「本地未看 + 联网未看」的混池中随机取一条 → ui 渲染卡片 → 用户操作（再来一个 / 收藏 / 安静一会）→ state 持久化。
 
 # 5. 关键接口
 
@@ -64,7 +65,7 @@ selected_approach: PySide6 自绘卡片
 # 6. 内容来源与流程
 
 - **本地库**：JSON 文件，作为打底内容，便于人工扩充
-- **联网**：RSS / 公开接口抓取趣闻与新闻；具体来源清单在计划阶段确定
+- **联网**：公开趣味接口抓取中文「妙语」（抖机灵 / 毒鸡汤 / 趣味短句）；**不接入任何资讯或新闻类来源**
 - **去重**：以 `id` 维护已看历史，短窗口内不重复推送
 - **降级**：抓取超时或失败时，退回本地库
 
@@ -89,6 +90,6 @@ selected_approach: PySide6 自绘卡片
 
 # 10. 计划阶段已确定
 
-- **联网来源清单**：初版使用可配置 RSS 列表，且**全部为中文来源**：奇客资讯 Solidot（`https://www.solidot.org/index.rss`）、少数派（`https://sspai.com/feed`）、科技爱好者周刊（`https://www.ruanyifeng.com/blog/atom.xml`）；实现阶段已实测可达。曾考虑的 BBC World 因内容为英文、煎蛋（`https://jandan.net/feed`）因返回 403 而未采用；来源可按需增删。
+- **联网来源清单（2026-10-13 修订）**：因产品只做「乐子」、不推新闻，原定的三个中文**资讯** RSS 源（奇客资讯 Solidot、少数派、科技爱好者周刊）已全部弃用。改为三个实测可用的中文**趣味**接口：一言 · 抖机灵（`https://v1.hitokoto.cn/?c=l`，JSON，取 `hitokoto` 字段）、毒鸡汤（`https://api.shadiao.app/du`，JSON，取 `data.text`）、趣味一言（`https://api.btstu.cn/yan/api.php`，纯文本）。实测中另有 14 个候选接口因 404 / DNS 不通 / 502 / 证书错误被淘汰。三个源各自独立失败降级，任一不可用不影响其余。
 - **卡片视觉**：出现在屏幕**右下角**（距边缘 24px）；深色半透明圆角卡片（圆角 16px）；正文中文字体「微软雅黑」；强调色 `#FFB74D`；淡入/淡出各 200ms。
 - **打包**：采用 PyInstaller **目录模式（onedir）+ 无控制台窗口**。配置见仓库根 `lezi.spec`，构建命令 `python -m PyInstaller lezi.spec --noconfirm`，产物 `dist/lezi/lezi.exe`（分发时需带上同目录的 `_internal/`）。运行期 `config.json` / `state.json` 落在 exe 同级目录，本地内容库从 `sys._MEIPASS/resources` 读取（实现见 `app.py` 的 `_base_dir()` / `_resource_path()`）。构建脚本为仓库根 `build.bat`（先清理 `build/` 与 `dist/lezi` 再执行打包），亦可直接运行 `python -m PyInstaller lezi.spec --noconfirm`。打包入口为仓库根 `lezi_entry.py`——`src/lezi/__main__.py` 使用相对导入，只能配合 `python -m lezi`，不能直接作为 PyInstaller 的入口脚本。

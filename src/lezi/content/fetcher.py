@@ -1,10 +1,11 @@
 from __future__ import annotations
 
+import json
 import logging
+from dataclasses import dataclass
 from datetime import datetime
 from typing import Callable
 
-import feedparser
 import requests
 
 from ..models import ContentItem, ContentType
@@ -24,41 +25,77 @@ def _http_get(url: str, timeout: float) -> bytes:
     return resp.content
 
 
-class FeedFetcher:
+def parse_hitokoto(raw: bytes) -> str | None:
+    """解析「一言」接口的 JSON，取 hitokoto 字段。"""
+    data = json.loads(raw.decode("utf-8"))
+    text = (data.get("hitokoto") or "").strip()
+    return text or None
+
+
+def parse_shadiao(raw: bytes) -> str | None:
+    """解析 shadiao 系列接口的 JSON，取 data.text 字段。"""
+    data = json.loads(raw.decode("utf-8"))
+    text = ((data.get("data") or {}).get("text") or "").strip()
+    return text or None
+
+
+def parse_plain(raw: bytes) -> str | None:
+    """解析纯文本接口，直接返回去除首尾空白后的文本。"""
+    text = raw.decode("utf-8", errors="replace").strip()
+    return text or None
+
+
+@dataclass(frozen=True)
+class QuipSource:
+    """一个联网趣味来源：如何取、如何解析。"""
+
+    name: str
+    url: str
+    parse: Callable[[bytes], str | None]
+
+
+# 中文趣味来源清单：只提供「乐子」，不含任何资讯 / 新闻。
+SOURCES: tuple[QuipSource, ...] = (
+    QuipSource("一言", "https://v1.hitokoto.cn/?c=l", parse_hitokoto),
+    QuipSource("毒鸡汤", "https://api.shadiao.app/du", parse_shadiao),
+    QuipSource("趣味一言", "https://api.btstu.cn/yan/api.php", parse_plain),
+)
+
+
+class QuipFetcher:
+    """从若干中文趣味接口抓取短句，逐个来源独立失败降级。"""
+
     def __init__(
         self,
-        feeds: list[str],
+        sources: list[QuipSource] | None = None,
         timeout: float = 5.0,
         fetch_fn: Callable[[str, float], bytes] | None = None,
     ) -> None:
-        self.feeds = list(feeds)
+        self.sources = list(sources) if sources is not None else list(SOURCES)
         self.timeout = timeout
         self.fetch_fn = fetch_fn if fetch_fn is not None else _http_get
 
     def fetch(self, limit: int = 20) -> list[ContentItem]:
         items: list[ContentItem] = []
-        for url in self.feeds:
+        for src in self.sources:
             try:
-                raw = self.fetch_fn(url, self.timeout)
-                parsed = feedparser.parse(raw)
-                for entry in parsed.entries:
-                    title = (entry.get("title") or "").strip()
-                    if not title:
-                        continue
-                    items.append(
-                        ContentItem(
-                            id=ContentItem.make_id(title),
-                            type=ContentType.NEWS,
-                            title=title,
-                            body=entry.get("summary", ""),
-                            source="rss",
-                            url=entry.get("link"),
-                            fetched_at=datetime.now().isoformat(),
-                        )
-                    )
-                    if len(items) >= limit:
-                        return items
+                text = src.parse(self.fetch_fn(src.url, self.timeout))
             except Exception:
-                logger.warning("feed fetch failed: %s", url, exc_info=True)
+                logger.warning("quip fetch failed: %s", src.url, exc_info=True)
                 continue
+            if not text:
+                continue
+            items.append(
+                ContentItem(
+                    id=ContentItem.make_id(text),
+                    type=ContentType.QUIP,
+                    title=src.name,
+                    body=text,
+                    source=src.name,
+                    url=src.url,
+                    fetched_at=datetime.now().isoformat(),
+                )
+            )
+            if len(items) >= limit:
+                break
         return items

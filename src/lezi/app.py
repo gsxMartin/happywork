@@ -10,7 +10,7 @@ from PySide6.QtCore import QObject, Qt, QTimer
 from PySide6.QtWidgets import QApplication, QWidget
 
 from .config import Config, load_config
-from .content.fetcher import FeedFetcher
+from .content.fetcher import QuipFetcher
 from .content.provider import ContentProvider
 from .content.store import ContentStore
 from .platform.win import idle_seconds, is_fullscreen
@@ -20,13 +20,6 @@ from .ui.card import CardWindow
 from .ui.favorites import FavoritesWindow
 from .ui.settings import SettingsWindow
 from .ui.tray import TrayController
-
-FEEDS = [
-    # 中文来源清单，保证推送内容为中文（可按需增删）
-    "https://www.solidot.org/index.rss",  # 奇客资讯
-    "https://sspai.com/feed",  # 少数派
-    "https://www.ruanyifeng.com/blog/atom.xml",  # 科技爱好者周刊
-]
 
 IDLE_THRESHOLD_SECONDS = 120.0
 
@@ -91,7 +84,7 @@ class Application(QObject):
         self.cfg: Config = load_config(self.config_path)
         self.store = ContentStore(self.content_path)
         self.store.load()
-        self.fetcher = FeedFetcher(FEEDS)
+        self.fetcher = QuipFetcher()
         self.state = StateStore(self.state_path)
         self.state.load()
         self.provider = ContentProvider(self.store, self.fetcher, self.state)

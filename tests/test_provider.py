@@ -29,23 +29,30 @@ def _local(id_, t=ContentType.JOKE):
 
 
 def _online(id_):
-    return ContentItem(id=id_, type=ContentType.NEWS, title=id_, body="b", source="rss")
+    return ContentItem(
+        id=id_, type=ContentType.QUIP, title=id_, body="b", source="一言"
+    )
 
 
-def test_prefers_fresh_online(tmp_path):
+def test_mixes_local_and_online_into_one_pool(tmp_path):
+    # 本地趣味内容与联网乐子并重：两者都应是候选，不能相互饿死。
     store = FakeStore([_local("L1")])
-    fetcher = FakeFetcher([_online("N1")])
-    state = StateStore(tmp_path / "s.json")
-    p = ContentProvider(store, fetcher, state, rng=random.Random(1))
-    assert p.next_item().id == "N1"
+    fetcher = FakeFetcher([_online("Q1")])
+    picks = set()
+    for seed in range(30):
+        state = StateStore(tmp_path / f"s{seed}.json")
+        p = ContentProvider(store, fetcher, state, rng=random.Random(seed))
+        picks.add(p.next_item().id)
+    assert picks == {"L1", "Q1"}
 
 
-def test_falls_back_to_local_when_online_empty(tmp_path):
-    store = FakeStore([_local("L1")])
+def test_seen_items_are_excluded_from_pool(tmp_path):
+    store = FakeStore([_local("L1"), _local("L2")])
     fetcher = FakeFetcher([])
     state = StateStore(tmp_path / "s.json")
+    state.mark_seen("L1")
     p = ContentProvider(store, fetcher, state, rng=random.Random(1))
-    assert p.next_item().id == "L1"
+    assert p.next_item().id == "L2"
 
 
 def test_all_seen_falls_back_to_any_local(tmp_path):
@@ -67,11 +74,11 @@ def test_empty_everything_returns_none(tmp_path):
 
 def test_skips_seen_online_in_favor_of_fresh_online(tmp_path):
     store = FakeStore([])
-    fetcher = FakeFetcher([_online("N1"), _online("N2")])
+    fetcher = FakeFetcher([_online("Q1"), _online("Q2")])
     state = StateStore(tmp_path / "s.json")
-    state.mark_seen("N1")
+    state.mark_seen("Q1")
     p = ContentProvider(store, fetcher, state, rng=random.Random(1))
-    assert p.next_item().id == "N2"
+    assert p.next_item().id == "Q2"
 
 
 def test_falls_back_to_local_when_fetcher_is_none(tmp_path):
@@ -94,7 +101,7 @@ def test_falls_back_to_local_when_fetch_raises(tmp_path):
 
 def test_next_item_does_not_mark_seen(tmp_path):
     store = FakeStore([_local("L1")])
-    fetcher = FakeFetcher([_online("N1")])
+    fetcher = FakeFetcher([_online("Q1")])
     state = StateStore(tmp_path / "s.json")
     p = ContentProvider(store, fetcher, state, rng=random.Random(1))
     item = p.next_item()

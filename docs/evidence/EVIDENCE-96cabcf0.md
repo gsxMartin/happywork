@@ -15,7 +15,7 @@ date: 2026-10-12
 | 总 AC 数 | 11 |
 | 自动化判定为 PASS 的 AC 数 | 4（AC-6、AC-8、AC-9、AC-11） |
 | 需人工确认的 AC 数 | 7（AC-1、AC-2、AC-3、AC-4、AC-5、AC-7、AC-10） |
-| 测试用例总数 | 47（验收阶段）；后续打包新增 4 条、缺陷修复新增 4 条，现为 55 条，见文末补记 |
+| 测试用例总数 | 47（验收阶段）；后续打包新增 4 条、缺陷修复新增 4 条、内容来源改为趣味类后增至 **61** 条，见文末补记 |
 
 > 2026-10-13 更正：AC-7 原被判定为「自动化 PASS」，复查发现其真实探测路径（`is_fullscreen()`）因常量引用错误恒返回 `False`，属于「用替身测通过、真实路径失效」的假 PASS，现改列为需人工确认并已修复，详见文末「补记：人工验证发现的缺陷与修复」。
 
@@ -126,7 +126,7 @@ card_signals: True True True
 
 ---
 
-## AC-6: 内容类型至少覆盖：冷笑话、脑筋急转弯（先题后答案，可点击揭示）、冷知识、趣闻/新闻
+## AC-6: 内容类型至少覆盖：冷笑话、脑筋急转弯（先题后答案，可点击揭示）、冷知识、妙语
 
 **命令：** `python -m pytest -v`（片段）+ 冒烟脚本（片段）+ 本地内容库核查
 
@@ -142,14 +142,14 @@ riddle_shown_answer: 答
 joke_show_answer: False
 ```
 ```
-src/lezi/models.py 中 ContentType = { JOKE, RIDDLE, TRIVIA, NEWS }
-resources/content_local.json 覆盖类型：joke×2、riddle×2、trivia×2
-app.py FEEDS 抓取来源条目类型为 NEWS
+src/lezi/models.py 中 ContentType = { JOKE, RIDDLE, TRIVIA, QUIP }
+resources/content_local.json 覆盖类型：joke×12、riddle×12、trivia×12（共 36 条，id 无重复）
+联网抓取条目类型为 QUIP（妙语）
 ```
 
 **判定：** PASS
 
-说明：四类内容类型（冷笑话 JOKE / 脑筋急转弯 RIDDLE / 冷知识 TRIVIA / 趣闻·新闻 NEWS）在枚举、本地内容库与在线抓取（NEWS）中均已覆盖；「先题后答案」的揭示语义由 `test_riddle_hides_answer_before_reveal`、`test_riddle_shows_answer_after_reveal` 及离屏断言自动化验证。附注：真实的「点击『看答案』按钮揭示」交互仍需人工确认。
+说明：四类内容类型（冷笑话 JOKE / 脑筋急转弯 RIDDLE / 冷知识 TRIVIA / 妙语 QUIP）在枚举、本地内容库与在线抓取（QUIP）中均已覆盖；「先题后答案」的揭示语义由 `test_riddle_hides_answer_before_reveal`、`test_riddle_shows_answer_after_reveal` 及离屏断言自动化验证。附注：真实的「点击『看答案』按钮揭示」交互仍需人工确认。2026-10-13 修订：原「趣闻·新闻 NEWS」类型的新闻属性与产品目标冲突，已改为「妙语 QUIP」并仅承载联网趣味短句。
 
 ---
 
@@ -211,35 +211,32 @@ tests/test_store.py::test_missing_file_returns_empty PASSED              [ 91%]
 
 ---
 
-## AC-10: 有网络时能抓取外部来源的趣闻/新闻，无网络时自动降级到本地内容库
+## AC-10: 有网络时能抓取外部中文趣味来源的乐子内容，无网络时自动降级到本地内容库
 
 **命令：** `python -m pytest -v`（片段）+ 代码核查 `src/lezi/content/fetcher.py` + 真实联网抓取
 
 **输出：**
 ```
-tests/test_fetcher.py::test_fetch_parses_entries PASSED                  [ 31%]
-tests/test_fetcher.py::test_fetch_respects_limit PASSED                  [ 34%]
-tests/test_fetcher.py::test_fetch_skips_garbage_source PASSED            [ 36%]
-tests/test_fetcher.py::test_fetch_skips_garbage_bytes_returns_empty PASSED [ 38%]
+tests/test_fetcher.py::test_parse_hitokoto_reads_hitokoto_field PASSED   [ 31%]
+tests/test_fetcher.py::test_fetch_collects_from_multiple_sources PASSED  [ 34%]
+tests/test_fetcher.py::test_fetch_skips_failing_source_but_keeps_others PASSED [ 36%]
+tests/test_fetcher.py::test_default_sources_are_fun_not_news PASSED      [ 38%]
 ```
 ```
-provider.py next_item(): 先在线、无新鲜在线再回退本地；fetcher.fetch() 抛异常则 online=[]
+provider.py next_item(): 本地未看 + 联网未看合并为同一池随机抽取；fetcher.fetch() 抛异常则 online=[]
 ```
 ```
-$env:PYTHONPATH="src"; python -c "from lezi.app import FEEDS; from lezi.content.fetcher import FeedFetcher; ..."
-FEEDS = ['https://www.solidot.org/index.rss', 'https://sspai.com/feed', 'https://www.ruanyifeng.com/blog/atom.xml']
-fetched = 6
- - 趣闻 | rss | 固态硬盘价格一年翻了两番
- - 趣闻 | rss | 全球汽油汽车销量首次低于五成
- - 趣闻 | rss | 微软在 Qwen 模型基础上推出决策模型 Microsoft-Decision-
- - 趣闻 | rss | FAST 发现一个脉冲星三星系统
- - 趣闻 | rss | 英国水果蔬菜营养价值下降最高五成
- - 趣闻 | rss | LineageOS 24 释出
+$env:PYTHONPATH="src"; python -c "from lezi.content.fetcher import QuipFetcher; ..."
+妙语 | 一言 | 博文天下，遍理人间！
+妙语 | 毒鸡汤 | 只要坚持不懈，嘲笑你的人，迟早会被你笑死。
+妙语 | 趣味一言 | 都说男人花言巧语欺骗女人，自从有了美颜相机，她们连自己都骗。
 ```
 
 **判定：** 需人工确认
 
-说明：RSS 解析与按源容错（单源失败不影响其它源）已由单元测试自动化 PASS（使用注入的 `fetch_fn`）；**真实联网抓取**已用真实代码路径（`FeedFetcher` + `app.FEEDS`）实测三个**中文**来源，均成功返回条目，`source="rss"`、类型为「趣闻」；「无网络降级」逻辑由 AC-9 覆盖。仍待人工确认的部分：程序实际运行时，托盘环境下是否真的弹出这类 RSS 条目。
+说明：三个趣味源的解析与按源容错（单源失败不影响其它源）已由单元测试自动化 PASS（使用注入的 `fetch_fn`），并有 `test_default_sources_are_fun_not_news` 断言来源清单不含任何资讯/新闻域名；**真实联网抓取**已用真实代码路径（`QuipFetcher` + 默认 `SOURCES`）实测，三个来源均返回中文乐子内容，类型为「妙语」；「无网络降级」逻辑由 AC-9 覆盖。仍待人工确认的部分：程序实际运行时，托盘环境下是否真的弹出这类联网乐子。
+
+2026-10-13 修订：原实现抓取的是**资讯类** RSS（奇客资讯 / 少数派 / 科技爱好者周刊），与「只推乐子」的产品边界冲突——用户实测弹出了新闻，故整体替换为中文**趣味**接口；`NEWS` 类型随之改为 `QUIP`。
 
 ---
 
@@ -407,7 +404,7 @@ ad3bc79 维护：初始化仓库与 devflow/superpowers 流程文档
 7. **AC-7 全屏不打扰**
    让某应用进入全屏（如视频播放/F11 全屏），确认该期间不弹出卡片；退出全屏后恢复。
 8. **AC-10 真实联网抓取**
-   在有网络环境下观察是否推送来自 RSS 来源（`source="rss"`）的新闻条目；断网后确认仍能推送本地内容库条目而不报错。
+   在有网络环境下观察是否推送来自趣味接口（`source` 为「一言」「毒鸡汤」「趣味一言」）的**妙语**条目；断网后确认仍能推送本地内容库条目而不报错。
 
 ---
 
@@ -577,4 +574,55 @@ state.json 已生成:
 
   即打包后的程序弹卡链路正常；用户未见弹卡的原因是默认间隔为 40~90 分钟、尚未到时间。
 
-**测试总数变化**：47（验收阶段）→ 51（打包）→ 54（本次缺陷修复）。
+**测试总数变化**：47（验收阶段）→ 51（打包）→ 54（缺陷 1/2 修复）→ 55（缺陷 3 修复）→ **61**（内容来源改为趣味类）。
+
+---
+
+## 补记：产品边界修订——只推乐子，不推新闻（2026-10-13）
+
+### 问题：弹出来的是新闻
+
+用户反馈「这个程序的设计目标是找乐子，刚刚为啥看到弹出来个啥新闻？」。根因有两层，均在代码中找到确证：
+
+1. **来源选错了**：联网来源被配置为三个中文**资讯** RSS——奇客资讯 Solidot、少数派、科技爱好者周刊（见旧 `app.py` 的 `FEEDS`），它们产出的一律是新闻，与「找乐子」的产品目标根本冲突。
+2. **本地趣味内容被饿死**：旧 `ContentProvider.next_item()` 只要联网有未看条目就直接 `return`，本地的冷笑话/脑筋急转弯/冷知识（当时仅 6 条）几乎永远不会出现。
+
+### 修复
+
+- **来源替换**：新增 `QuipFetcher`（`src/lezi/content/fetcher.py`），接入实测可用的三个中文**趣味**接口：
+  - 一言 · 抖机灵 `https://v1.hitokoto.cn/?c=l`（JSON，取 `hitokoto`）
+  - 毒鸡汤 `https://api.shadiao.app/du`（JSON，取 `data.text`）
+  - 趣味一言 `https://api.btstu.cn/yan/api.php`（纯文本）
+
+  实测中还试过另 14 个候选接口（uomg / apiopen / vvhan / aa1 / kuleu / lolimi / tenapi / pearktrue 等），因 404 / DNS 不通 / 502 / 自签证书错误全部淘汰。三个保留源各自独立失败降级。
+- **类型调整**：`ContentType.NEWS`（趣闻）→ `ContentType.QUIP`（妙语），因为联网内容已不再是新闻。
+- **配比调整**：`ContentProvider.next_item()` 改为把「本地未看 + 联网未看」合并成同一池子随机抽取，本地内容不再被联网饿死，符合「本地与联网并重」的原始需求。
+- **本地库扩充**：`resources/content_local.json` 由 6 条扩为 36 条（冷笑话 / 脑筋急转弯 / 冷知识各 12 条），并已核验 id 无重复。
+- **依赖清理**：移除不再使用的 `feedparser`。
+
+### 证据
+
+```
+$env:PYTHONPATH="src"; python -m pytest -q
+61 passed in 0.27s
+```
+```
+$env:PYTHONPATH="src"; python -c "from lezi.content.fetcher import QuipFetcher; items=QuipFetcher().fetch(); ..."
+妙语 | 一言 | 博文天下，遍理人间！
+妙语 | 毒鸡汤 | 只要坚持不懈，嘲笑你的人，迟早会被你笑死。
+妙语 | 趣味一言 | 都说男人花言巧语欺骗女人，自从有了美颜相机，她们连自己都骗。
+```
+```
+$env:PYTHONPATH="src"; python -c "...ContentStore('resources/content_local.json')..."
+总数 36 ; 去重后 36 ; Counter({'冷笑话': 12, '脑筋急转弯': 12, '冷知识': 12})
+```
+
+### 新增/改写的测试
+
+- `tests/test_fetcher.py` 全量重写（10 条）：三个解析函数、多源聚合、单源失败降级、空结果跳过、limit、以及 `test_default_sources_are_fun_not_news`（断言来源清单不含 solidot/sspai/ruanyifeng/jandan/bbc 等资讯域名）。
+- `tests/test_provider.py` 新增 `test_mixes_local_and_online_into_one_pool`，断言本地与联网条目都成为候选（不再互相饿死）。
+
+### 遗留
+
+- 用户仍需**重新运行 `build.bat`** 重新打包，dist 下的 exe 才会包含本次改动。
+- 联网乐子源为第三方公开接口，长期可用性存在不确定性；已做到单源失败不影响其它源、全部失败则退回本地库。

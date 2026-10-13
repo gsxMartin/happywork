@@ -10,7 +10,7 @@ class ContentType(str, Enum):
     JOKE = "joke"
     RIDDLE = "riddle"
     TRIVIA = "trivia"
-    NEWS = "news"
+    QUIP = "quip"
 
     @property
     def label(self) -> str:
@@ -22,7 +22,7 @@ _TYPE_LABELS = {
     ContentType.JOKE: "冷笑话",
     ContentType.RIDDLE: "脑筋急转弯",
     ContentType.TRIVIA: "冷知识",
-    ContentType.NEWS: "趣闻",
+    ContentType.QUIP: "妙语",
 }
 
 

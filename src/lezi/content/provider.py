@@ -4,7 +4,7 @@ import random
 
 from ..models import ContentItem
 from ..state import StateStore
-from .fetcher import FeedFetcher
+from .fetcher import QuipFetcher
 from .store import ContentStore
 
 
@@ -12,7 +12,7 @@ class ContentProvider:
     def __init__(
         self,
         store: ContentStore,
-        fetcher: FeedFetcher | None,
+        fetcher: QuipFetcher | None,
         state: StateStore,
         rng: random.Random | None = None,
     ) -> None:
@@ -28,14 +28,14 @@ class ContentProvider:
                 online = self.fetcher.fetch()
             except Exception:
                 online = []
-        fresh_online = [i for i in online if not self.state.is_seen(i.id)]
-        if fresh_online:
-            return self.rng.choice(fresh_online)
-
         local = self.store.all()
-        fresh_local = [i for i in local if not self.state.is_seen(i.id)]
-        if fresh_local:
-            return self.rng.choice(fresh_local)
+
+        # 本地趣味内容与联网乐子并重：未看过的合并成一个池子随机抽取，
+        # 避免任何一方（尤其量少的本地库）被永久饿死。
+        fresh = [i for i in (*online, *local) if not self.state.is_seen(i.id)]
+        if fresh:
+            return self.rng.choice(fresh)
+
         if local:
             return self.rng.choice(local)
         return None
