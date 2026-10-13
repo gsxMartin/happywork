@@ -15,11 +15,11 @@ date: 2026-10-12
 | 总 AC 数 | 11 |
 | 自动化判定为 PASS 的 AC 数 | 5（AC-6、AC-7、AC-8、AC-9、AC-11） |
 | 需人工确认的 AC 数 | 6（AC-1、AC-2、AC-3、AC-4、AC-5、AC-10） |
-| 测试用例总数 | 47（`python -m pytest -v` 全部通过） |
+| 测试用例总数 | 47（验收阶段；`python -m pytest -v` 全部通过）。后续打包工作新增 4 条路径解析测试，合计 51 条，见文末补记 |
 
 关键命令执行情况：
 
-- `python -m pytest -v`：成功，`47 passed in 0.30s`（原始输出见文末附录；中文化修正后复跑仍为 47 passed）。
+- `python -m pytest -v`：成功，`47 passed in 0.30s`（原始输出见文末附录，为验收阶段所录；中文化修正后复跑仍为 47 passed）。
 - `python -m lezi --version`：直接运行**失败**（`No module named lezi`，因包在 `src/` 下且未安装）；补 `PYTHONPATH=src` 后成功输出 `lezi 0.1.0`。
 - 离屏冒烟脚本 `$env:TEMP\lezi_smoke.py`：成功，退出码 0，全部断言输出见 AC-3/AC-5/AC-6/AC-7 各节。
 - `git log --oneline`：17 个提交，提交信息**全部为中文**，覆盖模型/调度/状态/内容库/抓取/提供者/界面/装配。
@@ -406,3 +406,56 @@ ad3bc79 维护：初始化仓库与 devflow/superpowers 流程文档
    让某应用进入全屏（如视频播放/F11 全屏），确认该期间不弹出卡片；退出全屏后恢复。
 8. **AC-10 真实联网抓取**
    在有网络环境下观察是否推送来自 RSS 来源（`source="rss"`）的新闻条目；断网后确认仍能推送本地内容库条目而不报错。
+
+---
+
+## 补记：打包（PyInstaller）验证
+
+本节记录验收之后追加的打包工作，不属于 REQ 的 11 条 AC，仅作交付方式的证据记录。
+
+**新增测试 4 条**（`tests/test_app.py`，TDD：先失败后通过；覆盖冻结模式的路径解析）
+
+```
+$env:PYTHONPATH="src"; python -m pytest -q
+51 passed in 0.27s
+```
+
+**安装构建依赖**
+
+```
+python -m pip install "pyinstaller>=6.10"
+Successfully installed altgraph-0.17.5 pefile-2024.8.26 pyinstaller-6.22.3 pyinstaller-hooks-contrib-2026.8 pywin32-ctypes-0.2.3 setuptools-84.0.0
+```
+
+**构建**
+
+```
+python -m PyInstaller lezi.spec --noconfirm
+Build complete! The results are available in: D:\Python工具\找点乐子\dist
+```
+
+**产物核对**
+
+```
+dist/lezi/ 下内容：lezi.exe、_internal
+dist/lezi/_internal/resources/content_local.json 存在：True
+整个 dist/lezi 体积：19.3 MB
+```
+
+**可启动性**
+
+```
+lezi.exe --version                 → 退出码 0
+lezi.exe（启动后观察 6 秒）        → 进程存活，未提前退出
+```
+
+**过程中发现并修复的问题**
+
+- 首次构建产物启动即退出（退出码 1）。因 spec 原以 `src/lezi/__main__.py` 为入口，而该文件使用相对导入（`from .app import main`），仅适用于 `python -m lezi`；被 PyInstaller 当作顶层脚本执行时报
+  `ImportError: attempted relative import with no known parent package`（用带控制台的临时构建复现得到）。
+  修复：新增仓库根 `lezi_entry.py` 作为绝对导入的打包入口，spec 的 Analysis 指向它。
+
+**判定：** 部分 PASS，需人工确认
+
+- 已验证：冻结路径解析逻辑（4 条测试）、构建成功、资源已打入预期位置、exe 可启动且不闪退。
+- 待人工确认：打包后的 exe 在真实桌面下能否正常弹出卡片（本次未做长时间运行验证），以及托盘图标与右键菜单是否与源码运行一致。

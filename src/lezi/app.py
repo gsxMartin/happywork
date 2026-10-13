@@ -32,7 +32,24 @@ IDLE_THRESHOLD_SECONDS = 120.0
 
 
 def _base_dir() -> Path:
+    """配置与状态文件的存放目录。
+
+    以 PyInstaller 打包运行时，取 exe 所在目录（用户可见、可写）；
+    源码运行时取项目根目录。
+    """
+    if getattr(sys, "frozen", False):
+        return Path(sys.executable).resolve().parent
     return Path(__file__).resolve().parents[2]
+
+
+def _resource_path() -> Path:
+    """本地内容库文件路径。
+
+    打包后资源被解包到 `sys._MEIPASS`，需从这里读取；源码运行时回退到项目根目录。
+    """
+    meipass = getattr(sys, "_MEIPASS", None)
+    root = Path(meipass) if meipass is not None else _base_dir()
+    return root / "resources" / "content_local.json"
 
 
 def should_pop(
@@ -64,7 +81,7 @@ class Application(QObject):
         base = _base_dir()
         self.config_path = base / "config.json"
         self.state_path = base / "state.json"
-        self.content_path = base / "resources" / "content_local.json"
+        self.content_path = _resource_path()
 
         self.cfg: Config = load_config(self.config_path)
         self.store = ContentStore(self.content_path)
