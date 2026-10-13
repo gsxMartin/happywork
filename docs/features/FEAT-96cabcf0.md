@@ -1,7 +1,7 @@
 ---
 id: FEAT-96cabcf0
 title: 找点乐子 —— 上班时段随机推送趣味内容的桌面小工具
-status: approved
+status: implemented
 req_ref: REQ-96cabcf0
 ---
 
