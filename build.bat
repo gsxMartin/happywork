@@ -8,6 +8,13 @@ if errorlevel 1 (
     exit /b 1
 )
 
+tasklist /fi "imagename eq lezi.exe" 2>nul | find /i "lezi.exe" >nul
+if not errorlevel 1 (
+    echo 检测到 lezi.exe 正在运行，占用 dist\lezi 会导致打包失败。
+    echo 请先在托盘图标上右键「退出」，再重新运行本脚本。
+    exit /b 1
+)
+
 echo [1/3] 清理旧产物...
 if exist "build" rmdir /s /q "build"
 if exist "dist\lezi" rmdir /s /q "dist\lezi"
